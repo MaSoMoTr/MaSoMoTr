@@ -42,7 +42,7 @@ Follow the GUI to specify the inputs for the pipeline including video .avi, back
 1. Mask-RCNN model [Download](https://drive.google.com/uc?export=download&id=17jWmHP8lmNhjROprMN4Exd9lfl-svFCA)
 The model should be saved in the path:  *mrcnn_models/mask_rcnn_mouse_0025.h5*
 2. Deeplabcut model [Download](https://drive.google.com/file/d/1LT2Twkzl-6j7Qw4OpISThFSoMd-LuKs_/view?usp=sharing)
-The zip file must be extracted and saved in the path:  *dlc_models/dlc_mice_tracking
+The zip file must be extracted and saved in the path:  *dlc_models/dlc_mice_tracking*
 
 3. Video examples and background photos [Download](https://drive.google.com/drive/folders/1W3NCg_woHhlSPrmJy37irR2qIrVqlJf9?usp=sharing)
 
