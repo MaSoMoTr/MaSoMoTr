@@ -35,9 +35,8 @@ To track mice in new videos, you can launch the GUI by executing:
    streamlit run app_markerless_mice_tracking.py -- --video=/path/to/video_dir/  --background=/path/to/background_dir/--mrcnn_model=/path/to/model_dir/
    ```
 
-Follow the GUI to specify the inputs for the pipeline including video .avi, background .jpg, Mask-RCNN model, the tracking results .h5 of DeepLabCut.
-* Output of the workflow are two csv files storing coordinates of snout and tailbase corresponding to two mice: *features_mouse1_ensemble.csv* and *features_mouse2_ensemble.csv*. Besides that,
-all intermediate data generated are also saved.
+Follow the GUI to specify the inputs for the pipeline including video .avi, background .jpg, Mask-RCNN model .h5, config.yaml of DeepLabCut project.
+* Output of the workflow are two csv files storing coordinates of snout and tailbase corresponding to two mice: *mouse1_ensemble.csv* and *mouse2_ensemble.csv*, and folder *tracking containing masks of mice. 
 
 ## Pretrained models and video samples 
 1. Mask-RCNN model [Download](https://drive.google.com/uc?export=download&id=17jWmHP8lmNhjROprMN4Exd9lfl-svFCA)
