@@ -1,6 +1,6 @@
 # Markerless Mice Tracking for Social Experiments
 
-This is an implementation of the pipeline to track unmarked mice of similar appearance which is described in the paper https://biorxiv.org/cgi/content/short/2021.10.20.464614v1
+This is an implementation of the pipeline to track unmarked mice of similar appearance. The technique and characterization are described in the paper https://biorxiv.org/cgi/content/short/2021.10.20.464614v1
 
 ## Installation
 The code has been run successfully on Windows with an NVIDIA GPU
