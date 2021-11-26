@@ -3,7 +3,7 @@
 This is an implementation of the pipeline to track unmarked mice of similar appearance. The technique and characterization are described in the paper https://biorxiv.org/cgi/content/short/2021.10.20.464614v1
 
 ## Installation
-The code has been run successfully on Windows with an NVIDIA GPU
+The code has been run successfully on Windows 7 and 10 with an NVIDIA GPU (Titan XP and RTX2070)
 1. Clone this repository
 2. [Anaconda](https://www.anaconda.com/distribution/) is highly recommended to install Python 3
 3. Install dependencies with our provided Anaconda environments
@@ -17,8 +17,8 @@ The code has been run successfully on Windows with an NVIDIA GPU
    conda activate markerless_mice_tracking_windowsGPU
    ```
 To run Mask-RCNN and DeepLabCut using GPU, CUDA and cuDNN  must be installed according to Tensorflow documentation [GPU support](https://www.tensorflow.org/install/source#gpu). 
-## Apply the algorithm on your own data
-To apply the algorithm to new videos which have significantly different settings with our settings described in the paper, we recommend you to
+## Applying the algorithm on your own data
+To apply the algorithm to new videos which have significantly different settings compared with our settings described in the paper, we recommend you to
 retrain Mask-RCNN and Deeplabcut models on your own data.
 
 - The workflow to train Mask-RCNN model can be found in the Jupyter Notebook *pipelines/mrcnn_training.ipynb*
