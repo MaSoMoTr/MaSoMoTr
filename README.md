@@ -39,12 +39,12 @@ Follow the GUI to specify the inputs for the pipeline including video .avi, back
 * Output of the workflow are two csv files storing coordinates of snout and tailbase corresponding to two mice: *mouse1_ensemble.csv* and *mouse2_ensemble.csv*, and folder *tracking* containing masks of mice. 
 
 ## Pretrained models and video samples 
-1. Mask-RCNN model [Download](https://drive.google.com/uc?export=download&id=17jWmHP8lmNhjROprMN4Exd9lfl-svFCA)
+1. Mask-RCNN model [Download](http://people.ucalgary.ca/~kmurari/masomotr/trainedModels/mask_rcnn_mouse_0025.h5)
 The model should be saved in the path:  *mrcnn_models/mask_rcnn_mouse_0025.h5*
-2. Deeplabcut model [Download](https://drive.google.com/file/d/1LT2Twkzl-6j7Qw4OpISThFSoMd-LuKs_/view?usp=sharing)
+2. Deeplabcut model [Download](http://people.ucalgary.ca/~kmurari/masomotr/trainedModels/dlc_mice_model.rar)
 The zip file must be extracted and saved in the path:  *dlc_models/dlc_mice_tracking*
 
-3. Video examples and background photos [Download](https://drive.google.com/drive/folders/1W3NCg_woHhlSPrmJy37irR2qIrVqlJf9?usp=sharing)
+3. Mouse Trracking dataset [Download](people.ucalgary.ca/~kmurari/masomotr/MTdataset)
 
 The current configuration allows you to track 2 mice in the videos, but you can expand to track more mice with proper configuration.
 
