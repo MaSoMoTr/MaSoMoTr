@@ -20,6 +20,12 @@ from .mouse import MouseDataset
 from .mouse import InferenceConfig
 from .shape import shapes_to_labels_masks
 from multiprocessing import Pool
+import deepdish as dd
+import math
+import numpy as np
+import PIL.Image
+import PIL.ImageDraw
+
 
 import shutil
 import time
@@ -354,6 +360,95 @@ def tracking_inference(fg_dir, components_info):
         else:
             #I = I.astype(np.uint8) * 255
             skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
+
+
+def tracking_inference_h5(frames_dir, components_info):
+    """Track the identities of mice
+    Args:
+        fg_dir: path to directory containing foreground
+        components_info: path to a csv file or an array
+    """
+    tracking_dir = os.path.join(os.path.dirname(fg_dir), 'tracking')
+
+    if not os.path.exists(tracking_dir):
+        os.mkdir(tracking_dir)
+
+    if isinstance(components_info, str):
+        components = pd.read_csv(components_info)
+        components = np.array(components.loc[:, 'components'])
+    else:
+        components = components_info
+
+    #I = skimage.io.imread(os.path.join(fg_dir, str(0) + '.png'))
+    #skimage.io.imsave(os.path.join(tracking_dir, str(0) + '.png'), I)
+    flag = 1
+    index = 0
+    while(flag):
+        if components[index]==2:
+            flag = 0
+        else:
+            index = index + 1
+
+
+    #-------------------------------------------
+    video_dict = dd.io.load(os.path.join(os.path.dirname(frames_dir), 'masks.h5'))
+
+    video_tracking_dict = {}
+    video_tracking_dict[str(0)] = video_dict[str(index)]
+
+    frame_dict = video_dict[str(index)]
+    I = boundary2mask(frame_dict)
+    #--------------------------------------------
+    # I = skimage.io.imread(os.path.join(fg_dir, str(index) + '.png'))
+    # skimage.io.imsave(os.path.join(tracking_dir, str(0) + '.png'), I)
+    #---------------------------------------------------------
+
+
+
+
+    I = img_as_ubyte(I/255)
+
+    for i in range(1, components.shape[0]):
+        I1 = I[:, :, 0]
+        I2 = I[:, :, 1]
+
+        if components[i] == 2:
+            J = skimage.io.imread(os.path.join(
+                fg_dir, str(i) + '.png')) / 255.0
+
+            J1 = J[:, :, 0]
+            J2 = J[:, :, 1]
+
+            overlap_1 = np.sum(np.multiply(J1, I1)[:]) / np.sum(I1[:])
+            overlap_2 = np.sum(np.multiply(J2, I1)[:]) / np.sum(I1[:])
+            overlap_12 = np.abs(overlap_1 - overlap_2)
+
+            overlap_3 = np.sum(np.multiply(J1, I2)[:]) / np.sum(I2[:])
+            overlap_4 = np.sum(np.multiply(J2, I2)[:]) / np.sum(I2[:])
+            overlap_34 = np.abs(overlap_3 - overlap_4)
+
+            if overlap_12 >= overlap_34:
+                if overlap_1 >= overlap_2:
+                    I[:, :, 0] = J1
+                    I[:, :, 1] = J2
+                else:
+                    I[:, :, 0] = J2
+                    I[:, :, 1] = J1
+            else:
+                if overlap_3 >= overlap_4:
+                    I[:, :, 1] = J1
+                    I[:, :, 0] = J2
+                else:
+                    I[:, :, 1] = J2
+                    I[:, :, 0] = J1
+
+            I = I.astype(np.uint8) * 255
+            skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
+
+        else:
+            #I = I.astype(np.uint8) * 255
+            skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
+
 
 
 def tracking_inference_marker(fg_dir, components_info):
@@ -772,6 +867,104 @@ def mouse_mrcnn_segmentation(components_info, frames_dir, background_dir, model_
         frames_dir), 'components.csv'), index=False)
 
     return components
+
+
+def mouse_mrcnn_segmentation_h5(components_info, frames_dir, background_dir, model_dir, model_path=None):
+    """Segment mice using Mask-RCNN model
+    Args:
+        components_info: path to a csv file or an array
+        frames_dir: path to frames directory
+        background_dir: path to background image
+        model_dir: path to save log and trained model
+        model_path: path to model weights
+    Returns:
+        components: array of the number of blobs in each frames
+    """
+    config = InferenceConfig()
+    # config.set_config(batch_size=1)
+
+    # Create model object in inference mode.
+    model = modellib.MaskRCNN(
+        mode="inference", model_dir=model_dir, config=config)
+
+    if model_path:
+        model.load_weights(model_path, by_name=True)
+    else:
+        model_path = model.find_last()
+        model.load_weights(model_path, by_name=True)
+
+    output_dir = os.path.join(os.path.dirname(frames_dir), 'FG')
+
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+
+    bg = cv2.imread(background_dir)
+
+    if isinstance(components_info, str):
+        components = pd.read_csv(components_info)
+        components = np.array(components.loc[:, 'components'])
+    else:
+        components = components_info
+
+    print("The video has {} frames: ".format(components.shape[0]))
+
+    video_dict = dd.io.load(os.path.join(os.path.dirname(frames_dir), 'masks_1.h5'))
+
+    for i in range(components.shape[0]):
+        frame_dict = {}
+        if components[i] != 2:
+            image_name = str(i) + '.jpg'
+            image = skimage.io.imread(frames_dir + '/' + image_name)
+
+            if image.ndim == 2:
+                image_rgb = skimage.color.gray2rgb(image)
+            else:
+                image_rgb = image
+
+            results = model.detect([image_rgb], verbose=0)
+
+            results_package = results[0]
+
+            masks_rgb = np.zeros((bg.shape[0], bg.shape[1], 3), dtype=np.uint8)
+
+            if len(results_package["scores"]) >= 2:
+                class_ids = results_package['class_ids'][:2]
+                scores = results_package['scores'][:2]
+                masks = results_package['masks'][:, :, :2]  # Bool
+                rois = results_package['rois'][:2, :]
+
+                masks_1 = morphology.remove_small_objects(masks[:, :, 0], 1000)
+                masks_1 = morphology.binary_dilation(
+                    masks_1, morphology.disk(radius=3))
+
+                masks_2 = morphology.remove_small_objects(masks[:, :, 1], 1000)
+                masks_2 = morphology.binary_dilation(
+                    masks_2, morphology.disk(radius=3))
+
+                if (masks_1.sum().sum() > 0) & (masks_2.sum().sum() > 0):
+                    masks_rgb[:, :, 0] = img_as_ubyte(masks_1)
+                    masks_rgb[:, :, 1] = img_as_ubyte(masks_2)
+
+                    components[i] = 2
+
+                    frame_dict['mouse1'] = find_contours(img_as_ubyte(masks_1), 0.5)[0].astype(int)
+                    frame_dict['mouse2'] = find_contours(img_as_ubyte(masks_2), 0.5)[0].astype(int)
+
+
+
+            skimage.io.imsave(os.path.join(
+                output_dir, str(i) + '.png'), masks_rgb)
+
+        video_dict[str(i)] = frame_dict            
+    
+    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks.h5'), video_dict, compression=None)
+
+    components_df = pd.DataFrame({'components': components})
+    components_df.to_csv(os.path.join(os.path.dirname(
+        frames_dir), 'components.csv'), index=False)
+
+    return components
+
 
 
 def mouse_mrcnn_segmentation_multi_images(components_info, frames_dir, background_dir, model_dir, model_path=None, batch_size=2):
@@ -1374,12 +1567,67 @@ def background_subtraction_single(frames_dir, fg_dir, background, threshold, fra
 
         masks[:, :, 0] = img_as_ubyte(bw4_1)
         masks[:, :, 1] = img_as_ubyte(bw4_2)
+
+
     else:
         masks[:, :, 0] = img_as_ubyte(bw3)
 
     skimage.io.imsave(os.path.join(fg_dir, str(frame_index) + '.png'), masks)
 
     return num_fg
+
+
+def background_subtraction_single_h5(frames_dir, fg_dir, background, threshold, frame_index):
+    """Generate foregrounds corresponding to frames
+    Args:
+        frames_dir: path to directory containing frames
+        fg_dir: path to save foreground
+        background_dir: path to the background image
+        threshold: np.array
+        frame_index: int
+    Returns:
+        components: 1D array of number of blobs in each frame.
+    """
+    frame_dict = {}
+
+    im = img_as_float(skimage.io.imread(
+        os.path.join(frames_dir, str(frame_index) + '.jpg')))
+
+    if im.ndim == 3:
+        im = rgb2gray(im)
+
+    fg = (background - im) > threshold
+    bw1 = morphology.remove_small_objects(fg, 1000)
+
+    bw2 = morphology.binary_closing(bw1, morphology.disk(radius=10))
+
+    bw3 = bw2
+    label = measure.label(bw3)
+    num_fg = np.max(label)
+
+    masks = np.zeros(
+        [background.shape[0], background.shape[1], 3], dtype=np.uint8)
+
+    if num_fg == 2:
+        bw3_1 = label == 1
+        bw4_1 = morphology.binary_dilation(bw3_1, morphology.disk(radius=3))
+
+        bw3_2 = label == 2
+        bw4_2 = morphology.binary_dilation(bw3_2, morphology.disk(radius=3))
+
+        masks[:, :, 0] = img_as_ubyte(bw4_1)
+        masks[:, :, 1] = img_as_ubyte(bw4_2)
+
+        frame_dict['mouse1'] = find_contours(img_as_ubyte(bw4_1), 0.5)[0].astype(int)
+        frame_dict['mouse2'] = find_contours(img_as_ubyte(bw4_2), 0.5)[0].astype(int)
+
+
+    else:
+        masks[:, :, 0] = img_as_ubyte(bw3)
+
+    skimage.io.imsave(os.path.join(fg_dir, str(frame_index) + '.png'), masks)
+
+    return (frame_index, frame_dict, num_fg)
 
 
 def background_subtraction_parallel(frames_dir, background_path, num_processors=None):
@@ -1410,7 +1658,47 @@ def background_subtraction_parallel(frames_dir, background_path, num_processors=
     output = p.starmap(background_subtraction_single, [(
         frames_dir, fg_dir, background, threshold, i) for i in range(0, len(frames_list))])
 
+
     return np.array(output)
+
+
+def background_subtraction_parallel_h5(frames_dir, background_path, num_processors=None):
+    """Generate foregrounds corresponding to frames
+    Args:
+        frames_dir: path to directory containing frames
+        background_dir: path to the background image
+        num_processors: int
+    returns:
+        components: 1D array of number of blobs in each frame.
+    """
+    video_dict = {}
+    fg_dir = os.path.join(os.path.dirname(frames_dir), 'FG')
+
+    if not os.path.exists(fg_dir):
+        os.mkdir(fg_dir)
+    # clean_dir_safe(fg_dir)
+
+    background = img_as_float(skimage.io.imread(background_path))
+    if background.ndim == 3:
+        background = rgb2gray(background)
+
+    threshold = background * 0.5
+
+    frames_list = os.listdir(frames_dir)
+
+    p = Pool(processes=num_processors)
+    output = p.starmap(background_subtraction_single_h5, [(
+        frames_dir, fg_dir, background, threshold, i) for i in range(0, len(frames_list))])
+
+    num_fg_list =[]
+    for (frame_index, frame_dict, num_fg) in output:
+        video_dict[str(frame_index)] = frame_dict
+        num_fg_list.append(num_fg)
+
+    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks_1.h5'), video_dict, compression=None)
+    
+    return np.array(num_fg_list)
+
 
 
 def behavior_feature_extraction(resident, intruder, tracking_dir, order=[1, 2]):
@@ -1465,3 +1753,68 @@ def behavior_feature_extraction(resident, intruder, tracking_dir, order=[1, 2]):
                                     'resident2intruder.csv'), index=False)
 
     return df_features
+
+
+def boundary2mask(frame_dict, img_shape, num_mice=2):
+
+    masks = np.zeros((img_shape[0], img_shape[1], num_mice), dtype=bool)
+
+
+    for i in range(num_mice):
+        mask = np.zeros(img_shape[:2], dtype=np.uint8)
+        mask = PIL.Image.fromarray(mask)
+        draw = PIL.ImageDraw.Draw(mask)
+
+        mouse = frame_dict['mouse' + str(i)]
+
+        xy = [tuple(point) for point in mouse]
+    
+        assert len(xy) > 2, 'Polygon must have points more than 2'
+        draw.polygon(xy=xy, outline=1, fill=1)
+
+        mask = np.array(mask, dtype=bool)
+
+        masks[:,:, i]= mask
+    return masks
+
+
+def shape_to_mask(img_shape, points, shape_type=None,
+                  line_width=10, point_size=5):
+    """Generate an instance mask from a set of points
+    Args:
+        img_shape: Size of mask (height, width)
+        points: [[x1,y1],[x2,y2],....]
+        shape_type: str ('circle', 'rectangle', 'line', 'linestrip', 'point')
+        line_width: int
+        point_size: int
+    Returns: 
+        mask: A bool array of shape [height, width]
+    """
+
+    mask = np.zeros(img_shape[:2], dtype=np.uint8)
+    mask = PIL.Image.fromarray(mask)
+    draw = PIL.ImageDraw.Draw(mask)
+    xy = [tuple(point) for point in points]
+    if shape_type == 'circle':
+        assert len(xy) == 2, 'Shape of shape_type=circle must have 2 points'
+        (cx, cy), (px, py) = xy
+        d = math.sqrt((cx - px) ** 2 + (cy - py) ** 2)
+        draw.ellipse([cx - d, cy - d, cx + d, cy + d], outline=1, fill=1)
+    elif shape_type == 'rectangle':
+        assert len(xy) == 2, 'Shape of shape_type=rectangle must have 2 points'
+        draw.rectangle(xy, outline=1, fill=1)
+    elif shape_type == 'line':
+        assert len(xy) == 2, 'Shape of shape_type=line must have 2 points'
+        draw.line(xy=xy, fill=1, width=line_width)
+    elif shape_type == 'linestrip':
+        draw.line(xy=xy, fill=1, width=line_width)
+    elif shape_type == 'point':
+        assert len(xy) == 1, 'Shape of shape_type=point must have 1 points'
+        cx, cy = xy[0]
+        r = point_size
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=1, fill=1)
+    else:
+        assert len(xy) > 2, 'Polygon must have points more than 2'
+        draw.polygon(xy=xy, outline=1, fill=1)
+    mask = np.array(mask, dtype=bool)
+    return mask
