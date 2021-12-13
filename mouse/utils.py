@@ -362,16 +362,19 @@ def tracking_inference(fg_dir, components_info):
             skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
 
 
-def tracking_inference_h5(frames_dir, components_info):
+def tracking_inference_h5(frames_dir, components_info, img_shape=[540,540]):
     """Track the identities of mice
     Args:
         fg_dir: path to directory containing foreground
         components_info: path to a csv file or an array
-    """
-    tracking_dir = os.path.join(os.path.dirname(fg_dir), 'tracking')
 
-    if not os.path.exists(tracking_dir):
-        os.mkdir(tracking_dir)
+    Returns:
+        video_tracking_dict
+    """
+    # tracking_dir = os.path.join(os.path.dirname(frames_dir), 'tracking')
+
+    # if not os.path.exists(tracking_dir):
+    #     os.mkdir(tracking_dir)
 
     if isinstance(components_info, str):
         components = pd.read_csv(components_info)
@@ -397,24 +400,25 @@ def tracking_inference_h5(frames_dir, components_info):
     video_tracking_dict[str(0)] = video_dict[str(index)]
 
     frame_dict = video_dict[str(index)]
-    I = boundary2mask(frame_dict)
+    I = boundary2mask(frame_dict, img_shape, num_mice=2)
     #--------------------------------------------
     # I = skimage.io.imread(os.path.join(fg_dir, str(index) + '.png'))
     # skimage.io.imsave(os.path.join(tracking_dir, str(0) + '.png'), I)
     #---------------------------------------------------------
 
-
-
-
-    I = img_as_ubyte(I/255)
+    #I = img_as_ubyte(I/255)
 
     for i in range(1, components.shape[0]):
+        frame_tracking_dict = {}
+
         I1 = I[:, :, 0]
         I2 = I[:, :, 1]
 
         if components[i] == 2:
-            J = skimage.io.imread(os.path.join(
-                fg_dir, str(i) + '.png')) / 255.0
+            #J = skimage.io.imread(os.path.join(
+            #    frames_dir, str(i) + '.png')) / 255.0
+            frame_dict = video_dict[str(i)]
+            J = boundary2mask(frame_dict, img_shape, num_mice=2)
 
             J1 = J[:, :, 0]
             J2 = J[:, :, 1]
@@ -442,12 +446,34 @@ def tracking_inference_h5(frames_dir, components_info):
                     I[:, :, 1] = J2
                     I[:, :, 0] = J1
 
-            I = I.astype(np.uint8) * 255
-            skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
+
+            mouse1_boundary = find_contours(img_as_ubyte(I[:, :, 0] ), 0.5)[0].astype(int)
+            mouse1_temp = mouse1_boundary[:, 0].copy()
+            mouse1_boundary[:, 0] = mouse1_boundary[:,1]
+            mouse1_boundary[:, 1] = mouse1_temp
+
+            mouse2_boundary = find_contours(img_as_ubyte(I[:, :, 1] ), 0.5)[0].astype(int)
+            mouse2_temp = mouse2_boundary[:, 0].copy()
+            mouse2_boundary[:, 0] = mouse2_boundary[:,1]
+            mouse2_boundary[:, 1] = mouse2_temp
+
+            
+            frame_tracking_dict['mouse1'] = mouse1_boundary
+            frame_tracking_dict['mouse2'] = mouse2_boundary
+
+            #I = I.astype(np.uint8) * 255
+            #skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
 
         else:
+            frame_tracking_dict['mouse1'] = frame_dict['mouse1']
+            frame_tracking_dict['mouse2'] = frame_dict['mouse2']
             #I = I.astype(np.uint8) * 255
-            skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
+            #skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
+
+        video_tracking_dict[str(i)] = frame_tracking_dict
+    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks_tracking.h5'), video_dict, compression=None)
+
+    return video_tracking_dict
 
 
 
@@ -610,6 +636,130 @@ def mask_based_detection(tracking_dir, components_info, floor=[[51, 51], [490, 4
                                        'tailbase_x': features_mouse2[:, 3],
                                        'tailbase_y': features_mouse2[:, 2]})
     features_mouse2_df.to_csv(os.path.join(os.path.dirname(tracking_dir), 'features_mouse2_md.csv'),
+                              index=False)
+
+    return np.array(features_mouse1_df), np.array(features_mouse2_df)
+
+
+def mask_based_detection_h5(video_tracking_dict, frames_dir, components_info, floor=[[51, 51], [490, 490]], image_shape=(540, 540)):
+    """Detect snout and tailbase coordinated from masks
+    Args:
+        tracking_dir: path to directory containing masks corresponding to identities
+        components_info: path to a csv file or an array
+        floor: coordinates of top left and bottom right corners of rectangular floor zone
+        image_shape: size of frames (height, width)
+    Returns:
+        np.array(features_mouse1_df): coordinates of snout and tailbase of mouse 1
+        np.array(features_mouse2_df): coordinates of snout and tailbase of mouse 2
+    """
+    if isinstance(components_info, str):
+        components = pd.read_csv(components_info)
+        components = np.array(components.loc[:, 'components'])
+    else:
+        components = components_info
+
+    features_mouse1 = np.zeros((len(components), 4))
+    features_mouse2 = np.zeros((len(components), 4))
+
+    floor_zone = np.zeros(image_shape)
+    floor_zone[floor[0][0]:floor[1][0], floor[0][1]:floor[1][1]] = 1
+
+    for i in range(len(components)):
+        #print('frames: ', i)
+        # I = (skimage.io.imread(os.path.join(
+        #     tracking_dir, str(i) + '.png')) / 255.0).astype(int)
+
+        I = boundary2mask(video_tracking_dict[str(i)], image_shape, num_mice=2)
+
+        I1 = I[:, :, 0]
+        I2 = I[:, :, 1]
+
+        properties1 = regionprops(I1.astype(int), I1.astype(float))
+        center_of_mass1 = properties1[0].centroid
+
+        properties2 = regionprops(I2.astype(int), I2.astype(float))
+        center_of_mass2 = properties2[0].centroid
+
+        BB1 = find_contours(I1, 0.5)[0]
+        BB2 = find_contours(I2, 0.5)[0]
+
+        # mouse 1
+        center_BB1 = np.sum((BB1 - center_of_mass1) ** 2, axis=1)
+        index1 = np.argmax(center_BB1)
+        I1_end1 = BB1[index1]
+
+        end1_BB1 = np.sum((BB1 - I1_end1) ** 2, axis=1)
+        index2 = np.argmax(end1_BB1)
+        I1_end_max = np.max(end1_BB1)
+        I1_end2 = BB1[index2]
+
+        condition_mouse1 = np.sum(np.multiply(
+            floor_zone, I1)[:]) / np.sum(I1[:])
+
+        if i == 0:
+            features_mouse1[i, :2] = I1_end1
+            features_mouse1[i, 2:] = I1_end2
+        else:
+            if ((I1_end_max >= 90) & (condition_mouse1 == 1)):
+                features_mouse1[i, :2] = I1_end1
+                features_mouse1[i, 2:] = I1_end2
+            else:
+                end1_nose = np.sum((I1_end1 - features_mouse1[i - 1, :2]) ** 2)
+                end1_tail = np.sum((I1_end1 - features_mouse1[i - 1, 2:]) ** 2)
+
+                if end1_nose < end1_tail:
+                    features_mouse1[i, :2] = I1_end1
+                    features_mouse1[i, 2:] = I1_end2
+                else:
+                    features_mouse1[i, :2] = I1_end2
+                    features_mouse1[i, 2:] = I1_end1
+
+                    # mouse 2
+        center_BB2 = np.sum((BB2 - center_of_mass2) ** 2, axis=1)
+        index1 = np.argmax(center_BB2)
+        I2_end1 = BB2[index1]
+
+        end1_BB2 = np.sum((BB2 - I2_end1) ** 2, axis=1)
+        index2 = np.argmax(end1_BB2)
+        I2_end_max = np.max(end1_BB2)
+        I2_end2 = BB2[index2]
+
+        condition_mouse2 = np.sum(np.multiply(
+            floor_zone, I2)[:]) / np.sum(I2[:])
+
+        if i == 0:
+            features_mouse2[i, :2] = I2_end1
+            features_mouse2[i, 2:] = I2_end2
+        else:
+            if ((I2_end_max >= 90) & (condition_mouse2 == 1)):
+                features_mouse2[i, :2] = I2_end1
+                features_mouse2[i, 2:] = I2_end2
+            else:
+                end1_nose = np.sum((I2_end1 - features_mouse2[i - 1, :2]) ** 2)
+                end1_tail = np.sum((I2_end1 - features_mouse2[i - 1, 2:]) ** 2)
+
+                if end1_nose < end1_tail:
+                    features_mouse2[i, :2] = I2_end1
+                    features_mouse2[i, 2:] = I2_end2
+                else:
+                    features_mouse2[i, :2] = I2_end2
+                    features_mouse2[i, 2:] = I2_end1
+
+    features_mouse1 = np.round(features_mouse1, 2)
+
+    features_mouse1_df = pd.DataFrame({'snout_x': features_mouse1[:, 1],
+                                       'snout_y': features_mouse1[:, 0],
+                                       'tailbase_x': features_mouse1[:, 3],
+                                       'tailbase_y': features_mouse1[:, 2]})
+    features_mouse1_df.to_csv(os.path.join(os.path.dirname(frames_dir), 'features_mouse1_md.csv'),
+                              index=False)
+
+    features_mouse2 = np.round(features_mouse2, 2)
+    features_mouse2_df = pd.DataFrame({'snout_x': features_mouse2[:, 1],
+                                       'snout_y': features_mouse2[:, 0],
+                                       'tailbase_x': features_mouse2[:, 3],
+                                       'tailbase_y': features_mouse2[:, 2]})
+    features_mouse2_df.to_csv(os.path.join(os.path.dirname(frames_dir), 'features_mouse2_md.csv'),
                               index=False)
 
     return np.array(features_mouse1_df), np.array(features_mouse2_df)
@@ -908,7 +1058,7 @@ def mouse_mrcnn_segmentation_h5(components_info, frames_dir, background_dir, mod
 
     print("The video has {} frames: ".format(components.shape[0]))
 
-    video_dict = dd.io.load(os.path.join(os.path.dirname(frames_dir), 'masks_1.h5'))
+    video_dict = dd.io.load(os.path.join(os.path.dirname(frames_dir), 'masks_fg.h5'))
 
     for i in range(components.shape[0]):
         frame_dict = {}
@@ -947,9 +1097,22 @@ def mouse_mrcnn_segmentation_h5(components_info, frames_dir, background_dir, mod
 
                     components[i] = 2
 
-                    frame_dict['mouse1'] = find_contours(img_as_ubyte(masks_1), 0.5)[0].astype(int)
-                    frame_dict['mouse2'] = find_contours(img_as_ubyte(masks_2), 0.5)[0].astype(int)
 
+                    mouse1_boundary = find_contours(img_as_ubyte(masks_1), 0.5)[0].astype(int)
+                    mouse1_temp = mouse1_boundary[:, 0].copy()
+                    mouse1_boundary[:, 0] = mouse1_boundary[:,1]
+                    mouse1_boundary[:, 1] = mouse1_temp
+
+
+                    mouse2_boundary = find_contours(img_as_ubyte(masks_2), 0.5)[0].astype(int)
+                    mouse2_temp = mouse2_boundary[:, 0].copy()
+                    mouse2_boundary[:, 0] = mouse2_boundary[:,1]
+                    mouse2_boundary[:, 1] = mouse2_temp
+
+                    # frame_dict['mouse1'] = find_contours(img_as_ubyte(masks_1), 0.5)[0].astype(int)
+                    # frame_dict['mouse2'] = find_contours(img_as_ubyte(masks_2), 0.5)[0].astype(int)
+                    frame_dict['mouse1'] =  mouse1_boundary
+                    frame_dict['mouse2'] =  mouse2_boundary
 
 
             skimage.io.imsave(os.path.join(
@@ -1187,94 +1350,6 @@ def deeplabcut_detection_multi(config_path, video_path, shuffle=1, trainingsetin
     # df_mouse2['tailbase_y'] = df_mouse2_all[scorer,'tailbase', 'y']
     return filter_result
 
-# def deeplabcut_detection_multi_without_refine(config_path, video_path, shuffle=1, trainingsetindex=0, track_method='skeleton', videotype='.avi'):
-
-#     """Function to get snout and tailbase through deeplabcut
-#     Args:
-
-#     Returns:
-#     """
-#     videos=[video_path]
-#     deeplabcut.analyze_videos(config_path, videos, videotype=videotype)
-#     deeplabcut.convert_detections2tracklets(config_path, videos, videotype=videotype,
-#                                         shuffle=shuffle, trainingsetindex=trainingsetindex, track_method=track_method)
-
-#     #--------------bypass refining tracklets-----------------------
-#     #--------find pickle file containing tracklets------------------
-#     file_list = [f for f in glob.glob(os.path.join(os.path.dirname(video_path),'*.pickle'))]
-#     video_name = ntpath.basename(video_path).split('.')[0]
-#     if track_method=='skeleton':
-#         for filename in file_list:
-#             if (video_name in filename) and ('sk.pickle' in filename):
-#                 tracklet_result = filename
-#     elif track_method=='box':
-#         for filename in file_list:
-#             if (video_name in filename) and ('bx.pickle' in filename):
-#                 tracklet_result = filename
-
-
-#     #--------------------------------------------------------------------
-#     df_tracklets = pd.read_pickle(tracklet_result)
-#     scorer = df_tracklets['header'][0][0]
-
-#     mouse1_columns = [(col[0], 'mouse1', col[1], col[2]) for col in df_tracklets['header']]
-#     mouse2_columns = [(col[0], 'mouse2', col[1], col[2]) for col in df_tracklets['header']]
-#     mice_columns = mouse1_columns + mouse2_columns
-
-#     all_columns = pd.MultiIndex.from_tuples(mice_columns, names=["scorer", "individuals", "bodyparts", "coords"])
-
-#     cap = cv2.VideoCapture(video_path)
-#     nframes = int(cap.get(7))
-
-
-#     #---------------------------------------------------
-#     mouse1 = np.empty((nframes,len(mouse1_columns)))
-#     mouse1[:] = np.NaN
-
-#     for frame in df_tracklets[0].keys():
-#         # ind = int(frame[5:])
-#         # mouse1[ind,:] = df_tracklets[0][frame]
-#         try:
-#             ind = int(frame[5:])
-#             mouse1[ind,:] = df_tracklets[0][frame][:,0:3].flatten()
-#         except:
-#             continue
-
-#     #----------------------------------------------------
-#     mouse2 = np.empty((nframes,len(mouse2_columns)))
-#     mouse2[:] = np.NaN
-
-#     for frame in df_tracklets[1].keys():
-#         # ind = int(frame[5:])
-#         # mouse2[ind,:] = df_tracklets[1][frame]
-#         try:
-#             ind = int(frame[5:])
-#             mouse2[ind,:] = df_tracklets[1][frame][:,0:3].flatten()
-#         except:
-#             continue
-
-
-#     mice = np.concatenate((mouse1, mouse2), axis=1)
-#     df_mice = pd.DataFrame(mice, columns=all_columns)
-
-#     #------------Test: refine--------------------------
-#     df_mice.to_hdf(os.path.splitext(tracklet_result)[0]+'.h5', key='df', mode='w')
-#     #----------- Test: filter--------------------------
-#     deeplabcut.filterpredictions(config_path,video_path, track_method='skeleton')
-
-#     #---------- Test: find filter result-----------------------------------
-#     file_list = [f for f in glob.glob(os.path.join(os.path.dirname(video_path),'*.h5'))]
-#     video_name = ntpath.basename(video_path).split('.')[0]
-#     if track_method=='skeleton':
-#         for filename in file_list:
-#             if (video_name in filename) and ('sk_filtered.h5' in filename):
-#                 filter_result = filename
-#     elif track_method=='box':
-#         for filename in file_list:
-#             if (video_name in filename) and ('bx_filtered.h5' in filename):
-#                 filter_result = filename
-
-#     return filter_result
 
 def deeplabcut_detection_multi_without_refine(config_path, video_path, shuffle=1, trainingsetindex=0, track_method='skeleton', videotype='.avi'):
     """Function to get snout and tailbase through deeplabcut
@@ -1528,6 +1603,152 @@ def ensemble_features_multi(mouse1_md, mouse2_md, mouse1_dlc, mouse2_dlc, tracki
     return df_mouse1_ensemble, df_mouse2_ensemble
 
 
+def ensemble_features_multi_h5(mouse1_md, mouse2_md, mouse1_dlc, mouse2_dlc, components, video_tracking_dict, img_shape, frames_dir):
+    """Ensemble the result of mask-based detection and deeplabcut-based detection
+    Args:
+        mouse1_md: coordinates of snout and tailbase generated by mask-based detection
+        mouse2_md: coordinates of snout and tailbase generated by mask-based detection
+        mouse1_dlc: coordinates of snout and tailbase generated by deeplabcut detection
+        mouse1_dlc: coordinates of snout and tailbase generated by deeplabcut detection
+        tracking_dir: path to directory containing masks corresponding to identities
+
+    Returns:
+        df_mouse1_ensemble: ensemble coordinates of snout and tailbase of mouse1
+        df_mouse2_ensemble: ensemble coordinates of snout and tailbase of mouse1
+    """
+
+    # components = pd.read_csv(os.path.join(
+    #     os.path.dirname(tracking_dir), 'components.csv'))
+
+    mouse1_ensemble = np.zeros(mouse1_md.shape)
+    mouse2_ensemble = np.zeros(mouse2_md.shape)
+
+    mouse1_dlc = np.array(mouse1_dlc)
+    mouse2_dlc = np.array(mouse2_dlc)
+
+    flag1 = np.zeros((len(mouse1_md),))
+    flag2 = np.zeros((len(mouse2_md),))
+
+    for i in range(len(mouse1_md)):
+
+        # masks = skimage.io.imread(os.path.join(
+        #     tracking_dir, str(i) + '.png')) / 255.0
+
+        masks = boundary2mask(video_tracking_dict[str(i)], img_shape, num_mice=2)
+
+        mask1 = masks[:, :, 0].astype(int)
+        mask2 = masks[:, :, 1].astype(int)
+
+        nose1_DLC = np.zeros(mask1.shape)
+        tail1_DLC = np.zeros(mask1.shape)
+
+        nose2_DLC = np.zeros(mask2.shape)
+        tail2_DLC = np.zeros(mask2.shape)
+
+        try:
+            nose1_DLC[mouse1_dlc[i, 1].astype(
+                int), mouse1_dlc[i, 0].astype(int)] = 1
+            tail1_DLC[mouse1_dlc[i, 3].astype(
+                int), mouse1_dlc[i, 2].astype(int)] = 1
+        except:
+            pass
+
+        try:
+            nose2_DLC[mouse2_dlc[i, 1].astype(
+                int), mouse2_dlc[i, 0].astype(int)] = 1
+            tail2_DLC[mouse2_dlc[i, 3].astype(
+                int), mouse2_dlc[i, 2].astype(int)] = 1
+
+        except:
+            pass
+
+        # -----------mouse 1---------------------
+
+        if (np.sum(np.sum(nose1_DLC*mask1)) > 0) & (np.sum(np.sum(tail1_DLC*mask1)) > 0):
+
+            mouse1_ensemble[i, 0:2] = mouse1_dlc[i, 0:2]
+            mouse1_ensemble[i, 2:4] = mouse1_dlc[i, 2:4]
+            flag1[i] = 1
+
+        elif (np.sum(np.sum(nose2_DLC*mask1)) > 0) & (np.sum(np.sum(tail2_DLC*mask1)) > 0):
+            mouse1_ensemble[i, 0:2] = mouse2_dlc[i, 0:2]
+            mouse1_ensemble[i, 2:4] = mouse2_dlc[i, 2:4]
+            flag1[i] = 1
+
+        else:
+            mouse1_ensemble[i, 0:2] = mouse1_md[i, 0:2]
+            mouse1_ensemble[i, 2:4] = mouse1_md[i, 2:4]
+            flag1[i] = 0
+
+        # --------logic to fix swapping: ------------
+        if i > 0:
+            #if (flag1[i] == 0) & (flag1[i-1] == 1) & (components.loc[i, 'components'] == 2):
+            if (flag1[i] == 0) & (flag1[i-1] == 1) & (components[i] == 2):
+                mouse1_snout2snout = np.sum(
+                    (mouse1_ensemble[i, 0:2]-mouse1_ensemble[i-1, 0:2]) ** 2)
+                mouse1_snout2tail = np.sum(
+                    (mouse1_ensemble[i, 0:2]-mouse1_ensemble[i-1, 2:4]) ** 2)
+                if mouse1_snout2tail < mouse1_snout2snout:
+                    temp1 = mouse1_ensemble[i, 0:2].copy()
+                    mouse1_ensemble[i, 0:2] = mouse1_ensemble[i, 2:4]
+                    mouse1_ensemble[i, 2:4] = temp1
+
+        # --------mouse 2-------------------------
+        if (np.sum(np.sum(nose1_DLC*mask2)) > 0) & (np.sum(np.sum(tail1_DLC*mask2)) > 0):
+
+            mouse2_ensemble[i, 0:2] = mouse1_dlc[i, 0:2]
+            mouse2_ensemble[i, 2:4] = mouse1_dlc[i, 2:4]
+            flag2[i] = 1
+
+        elif (np.sum(np.sum(nose2_DLC*mask2)) > 0) & (np.sum(np.sum(tail2_DLC*mask2)) > 0):
+            mouse2_ensemble[i, 0:2] = mouse2_dlc[i, 0:2]
+            mouse2_ensemble[i, 2:4] = mouse2_dlc[i, 2:4]
+            flag2[i] = 1
+
+        else:
+            mouse2_ensemble[i, 0:2] = mouse2_md[i, 0:2]
+            mouse2_ensemble[i, 2:4] = mouse2_md[i, 2:4]
+            flag2[i] = 0
+
+        # --------logic to fix swapping: ------------
+        if i > 0:
+            #if (flag2[i] == 0) & (flag2[i-1] == 1) & (components.loc[i, 'components'] == 2):
+            if (flag2[i] == 0) & (flag2[i-1] == 1) & (components[i] == 2):
+                mouse2_snout2snout = np.sum(
+                    (mouse2_ensemble[i, 0:2]-mouse2_ensemble[i-1, 0:2]) ** 2)
+                mouse2_snout2tail = np.sum(
+                    (mouse2_ensemble[i, 0:2]-mouse2_ensemble[i-1, 2:4]) ** 2)
+                if mouse2_snout2tail < mouse2_snout2snout:
+                    temp2 = mouse2_ensemble[i, 0:2].copy()
+                    mouse2_ensemble[i, 0:2] = mouse2_ensemble[i, 2:4]
+                    mouse2_ensemble[i, 2:4] = temp2
+
+    # mouse1_ensemble[:,1] = 540-mouse1_ensemble[:,1]
+    # mouse1_ensemble[:,3] = 540-mouse1_ensemble[:,3]
+
+    # mouse2_ensemble[:,1] = 540-mouse2_ensemble[:,1]
+    # mouse2_ensemble[:,3] = 540-mouse2_ensemble[:,3]
+
+    df_mouse1_ensemble = pd.DataFrame({'snout_x': mouse1_ensemble[:, 0],
+                                       'snout_y': mouse1_ensemble[:, 1],
+                                       'tailbase_x': mouse1_ensemble[:, 2],
+                                       'tailbase_y': mouse1_ensemble[:, 3]})
+
+    df_mouse2_ensemble = pd.DataFrame({'snout_x': mouse2_ensemble[:, 0],
+                                       'snout_y': mouse2_ensemble[:, 1],
+                                       'tailbase_x': mouse2_ensemble[:, 2],
+                                       'tailbase_y': mouse2_ensemble[:, 3]})
+
+    df_mouse1_ensemble.to_csv(os.path.join(os.path.dirname(frames_dir),
+                                           'mouse1_ensemble.csv'), index=False)
+
+    df_mouse2_ensemble.to_csv(os.path.join(os.path.dirname(frames_dir),
+                                           'mouse2_ensemble.csv'), index=False)
+
+    return df_mouse1_ensemble, df_mouse2_ensemble
+
+
+
 def background_subtraction_single(frames_dir, fg_dir, background, threshold, frame_index):
     """Generate foregrounds corresponding to frames
     Args:
@@ -1577,7 +1798,7 @@ def background_subtraction_single(frames_dir, fg_dir, background, threshold, fra
     return num_fg
 
 
-def background_subtraction_single_h5(frames_dir, fg_dir, background, threshold, frame_index):
+def background_subtraction_single_h5(frames_dir, background, threshold, frame_index):
     """Generate foregrounds corresponding to frames
     Args:
         frames_dir: path to directory containing frames
@@ -1618,16 +1839,32 @@ def background_subtraction_single_h5(frames_dir, fg_dir, background, threshold, 
         masks[:, :, 0] = img_as_ubyte(bw4_1)
         masks[:, :, 1] = img_as_ubyte(bw4_2)
 
-        frame_dict['mouse1'] = find_contours(img_as_ubyte(bw4_1), 0.5)[0].astype(int)
-        frame_dict['mouse2'] = find_contours(img_as_ubyte(bw4_2), 0.5)[0].astype(int)
+        # frame_dict['mouse1'] = find_contours(img_as_ubyte(bw4_1), 0.5)[0].astype(int)
+        # frame_dict['mouse2'] = find_contours(img_as_ubyte(bw4_2), 0.5)[0].astype(int)
+
+
+        mouse1_boundary = find_contours(img_as_ubyte(bw4_1), 0.5)[0].astype(int)
+        mouse1_temp = mouse1_boundary[:, 0].copy()
+        mouse1_boundary[:, 0] = mouse1_boundary[:,1]
+        mouse1_boundary[:, 1] = mouse1_temp
+
+        mouse2_boundary = find_contours(img_as_ubyte(bw4_2), 0.5)[0].astype(int)
+        mouse2_temp = mouse2_boundary[:, 0].copy()
+        mouse2_boundary[:, 0] = mouse2_boundary[:,1]
+        mouse2_boundary[:, 1] = mouse2_temp
+
+        
+        frame_dict['mouse1'] = mouse1_boundary
+        frame_dict['mouse2'] = mouse2_boundary
 
 
     else:
         masks[:, :, 0] = img_as_ubyte(bw3)
 
-    skimage.io.imsave(os.path.join(fg_dir, str(frame_index) + '.png'), masks)
+    skimage.io.imsave(os.path.join(os.path.dirname(frames_dir), 'FG_parallel/'+str(frame_index) + '.png'), masks)
 
     return (frame_index, frame_dict, num_fg)
+ 
 
 
 def background_subtraction_parallel(frames_dir, background_path, num_processors=None):
@@ -1688,14 +1925,14 @@ def background_subtraction_parallel_h5(frames_dir, background_path, num_processo
 
     p = Pool(processes=num_processors)
     output = p.starmap(background_subtraction_single_h5, [(
-        frames_dir, fg_dir, background, threshold, i) for i in range(0, len(frames_list))])
+        frames_dir, background, threshold, i) for i in range(0, len(frames_list))])
 
     num_fg_list =[]
     for (frame_index, frame_dict, num_fg) in output:
         video_dict[str(frame_index)] = frame_dict
         num_fg_list.append(num_fg)
 
-    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks_1.h5'), video_dict, compression=None)
+    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks_fg.h5'), video_dict, compression=None)
     
     return np.array(num_fg_list)
 
@@ -1765,7 +2002,7 @@ def boundary2mask(frame_dict, img_shape, num_mice=2):
         mask = PIL.Image.fromarray(mask)
         draw = PIL.ImageDraw.Draw(mask)
 
-        mouse = frame_dict['mouse' + str(i)]
+        mouse = frame_dict['mouse' + str(i+1)]
 
         xy = [tuple(point) for point in mouse]
     

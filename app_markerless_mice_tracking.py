@@ -7,14 +7,16 @@ import skimage
 from PIL import Image, ImageDraw
 import multiprocessing
 from mouse.utils import dlc_snout_tailbase, behavior_feature_extraction, deeplabcut_detection_multi_without_refine
-from mouse.utils import check_mrcnn_model_path, tracking_inference, mask_based_detection, ensemble_features_multi
+from mouse.utils import check_mrcnn_model_path, tracking_inference_h5, mask_based_detection_h5, ensemble_features_multi_h5
 from mouse.utils import video2frames, background_subtraction_parallel, mouse_mrcnn_segmentation
+from mouse.utils import mouse_mrcnn_segmentation_h5, background_subtraction_parallel_h5
 import shutil
 import ntpath
 import glob
 import numpy as np
 import pandas as pd
 import streamlit as st
+import deepdish as dd
 import os
 import sys
 ROOT_DIR = os.path.abspath("./")
@@ -45,7 +47,7 @@ def video_file_selector(folder_path):
 # ---------select MaskRCNN model----------------------
 
 
-@st.cache()
+#@st.cache()
 def mrcnn_model_selector(folder_path):
     filenames = glob.glob(folder_path+'/*.h5')
     list_file = [ntpath.basename(file) for file in filenames]
@@ -214,14 +216,20 @@ def main():
             if click2:
 
                 if check:
-                    components = background_subtraction_parallel(
+                    components = background_subtraction_parallel_h5(
                         frames_dir, background_filename, num_processors=cpus)
+
+                    df_components = pd.DataFrame(components)
+                    df_components.to_csv(os.path.join(os.path.dirname(frames_dir),
+                                    'components_parallel.csv'), index=False)
 
                 else:
                     frames_dir = os.path.join(os.path.splitext(
                         tracking_video_dir)[0], "images")
                     n_frames = len(os.listdir(frames_dir))
                     components = np.zeros((n_frames,))
+                    video_dict = {}
+                    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks_1.h5'), video_dict, compression=None)
 
                     fg_dir = os.path.join(os.path.dirname(frames_dir), 'FG')
 
@@ -239,13 +247,13 @@ def main():
                             "Please read mrcnn_models/README.md to download our trained model")
 
                     else:
-                        components = mouse_mrcnn_segmentation(
+                        components = mouse_mrcnn_segmentation_h5(
                             components, frames_dir, background_filename, model_dir=MODEL_DIR, model_path=MRCNN_MODEL_PATH)
 
                 elif MRCNN_MODEL_PATH == None:
                     if check_mrcnn_model_path(MODEL_DIR):
                         print("The latest trained model will be loaded")
-                        components = mouse_mrcnn_segmentation(
+                        components = mouse_mrcnn_segmentation_h5(
                             components, frames_dir, background_filename, model_dir=MODEL_DIR, model_path=MRCNN_MODEL_PATH)
                     else:
                         print(
@@ -256,7 +264,7 @@ def main():
         # -----------------tracking inference---------------------------
 
                 fg_dir = os.path.join(os.path.dirname(frames_dir), 'FG')
-                tracking_inference(fg_dir, components)
+                video_tracking_dict=tracking_inference_h5(frames_dir, components, BG.shape)
 
         # ---------------deeplabcut detection-------------------------
                 dlc_result = deeplabcut_detection_multi_without_refine(config_path=dlc_config,
@@ -271,8 +279,8 @@ def main():
                     os.path.dirname(frames_dir), 'tracking')
                 floor = [[y_offset+1, x_offset+1],
                          [BG.shape[0]-y_offset, BG.shape[1]-x_offset]]
-                df_mouse1_md, df_mouse2_md = mask_based_detection(
-                    tracking_dir, components, floor=floor, image_shape=(BG.shape[0], BG.shape[1]))
+                df_mouse1_md, df_mouse2_md = mask_based_detection_h5(
+                    video_tracking_dict, frames_dir, components, floor=floor, image_shape=(BG.shape[0], BG.shape[1]))
 
                 # -----------------ensemble--------------------
 
@@ -284,14 +292,14 @@ def main():
                 tracking_dir = os.path.join(
                     os.path.dirname(frames_dir), 'tracking')
 
-                df_mouse1_ensemble, df_mouse2_ensemble = ensemble_features_multi(
-                    df_mouse1_md, df_mouse2_md, df_mouse1_dlc, df_mouse2_dlc, tracking_dir)
+                df_mouse1_ensemble, df_mouse2_ensemble = ensemble_features_multi_h5(
+                    df_mouse1_md, df_mouse2_md, df_mouse1_dlc, df_mouse2_dlc, components, video_tracking_dict, BG.shape, frames_dir)
 
-                os.remove(os.path.join(os.path.dirname(
-                    frames_dir), 'features_mouse1_md.csv'))
-                os.remove(os.path.join(os.path.dirname(
-                    frames_dir), 'features_mouse2_md.csv'))
-                shutil.rmtree(os.path.join(os.path.dirname(frames_dir), 'FG'))
+                # os.remove(os.path.join(os.path.dirname(
+                #     frames_dir), 'features_mouse1_md.csv'))
+                # os.remove(os.path.join(os.path.dirname(
+                #     frames_dir), 'features_mouse2_md.csv'))
+                # shutil.rmtree(os.path.join(os.path.dirname(frames_dir), 'FG'))
 
         # ------------Validating results---------------------------------------
 
@@ -309,6 +317,9 @@ def main():
             n_frames = len(os.listdir(frames_dir))
             df_mouse1_ensemble, df_mouse2_ensemble = load_tracking_results(
                 os.path.dirname(frames_dir))
+
+            video_correct_dict = dd.io.load(os.path.join(os.path.dirname(frames_dir), 'masks_tracking.h5'))
+
 
             frame_index_main = st.slider(
                 'frame slider', 0, n_frames-1, 0)
@@ -328,6 +339,8 @@ def main():
                 df_mouse1_ensemble.iloc[frame_index, 0] + df_mouse1_ensemble.iloc[frame_index, 2])/2
             center1_y = (
                 df_mouse1_ensemble.iloc[frame_index, 1] + df_mouse1_ensemble.iloc[frame_index, 3])/2
+
+            print('frame ' + str(frame_index) + ':', center1_x, center1_y)
 
             # mouse 2
 
@@ -377,18 +390,29 @@ def main():
 
                 swap_frames_list = df_swap.index[df_swap['swap'] == True].tolist(
                 )
-                tracking_dir = os.path.join(
-                    os.path.dirname(frames_dir), 'tracking')
+                # tracking_dir = os.path.join(
+                #     os.path.dirname(frames_dir), 'tracking')
                 for i in swap_frames_list:
-                    I = (skimage.io.imread(os.path.join(
-                        tracking_dir, str(i) + '.png')) / 255.0).astype(int)
 
-                    I_temp = I[:, :, 0].copy()
-                    I[:, :, 0] = I[:, :, 1]
-                    I[:, :, 1] = I_temp
+                    frame_current_dict = video_correct_dict[str(i)]
 
-                    skimage.io.imsave(os.path.join(
-                        tracking_dir, str(i) + '.png'), I)
+                    mouse_temp = frame_current_dict['mouse1'].copy()
+                    frame_current_dict['mouse1'] = frame_current_dict['mouse2'] 
+                    frame_current_dict['mouse2'] = mouse_temp
+                    video_correct_dict[str(i)] = frame_current_dict
+
+                    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks_tracking.h5'), video_correct_dict, compression=True)
+
+                    # I = (skimage.io.imread(os.path.join(
+                    #     tracking_dir, str(i) + '.png')) / 255.0).astype(int)
+
+                    # I_temp = I[:, :, 0].copy()
+                    # I[:, :, 0] = I[:, :, 1]
+                    # I[:, :, 1] = I_temp
+
+                    # skimage.io.imsave(os.path.join(
+                    #     tracking_dir, str(i) + '.png'), I)
+
 
                 # reset swap
                 df_swap['swap'] = False
