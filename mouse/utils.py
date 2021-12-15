@@ -362,19 +362,17 @@ def tracking_inference(fg_dir, components_info):
             skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
 
 
-def tracking_inference_h5(frames_dir, components_info, img_shape=[540,540]):
+def tracking_inference_h5(video_dict, frames_dir, components_info, img_shape=(540,540)):
     """Track the identities of mice
     Args:
-        fg_dir: path to directory containing foreground
+        video_dict: dictionary for mask boundary
+        frames_dir: path to directory containing frames
         components_info: path to a csv file or an array
+        img_shape: tuple image size
 
     Returns:
         video_tracking_dict
     """
-    # tracking_dir = os.path.join(os.path.dirname(frames_dir), 'tracking')
-
-    # if not os.path.exists(tracking_dir):
-    #     os.mkdir(tracking_dir)
 
     if isinstance(components_info, str):
         components = pd.read_csv(components_info)
@@ -382,8 +380,7 @@ def tracking_inference_h5(frames_dir, components_info, img_shape=[540,540]):
     else:
         components = components_info
 
-    #I = skimage.io.imread(os.path.join(fg_dir, str(0) + '.png'))
-    #skimage.io.imsave(os.path.join(tracking_dir, str(0) + '.png'), I)
+
     flag = 1
     index = 0
     while(flag):
@@ -394,19 +391,13 @@ def tracking_inference_h5(frames_dir, components_info, img_shape=[540,540]):
 
 
     #-------------------------------------------
-    video_dict = dd.io.load(os.path.join(os.path.dirname(frames_dir), 'masks.h5'))
+    #video_dict = dd.io.load(os.path.join(os.path.dirname(frames_dir), 'masks.h5'))
 
     video_tracking_dict = {}
     video_tracking_dict[str(0)] = video_dict[str(index)]
 
     frame_dict = video_dict[str(index)]
     I = boundary2mask(frame_dict, img_shape, num_mice=2)
-    #--------------------------------------------
-    # I = skimage.io.imread(os.path.join(fg_dir, str(index) + '.png'))
-    # skimage.io.imsave(os.path.join(tracking_dir, str(0) + '.png'), I)
-    #---------------------------------------------------------
-
-    #I = img_as_ubyte(I/255)
 
     for i in range(1, components.shape[0]):
         frame_tracking_dict = {}
@@ -415,8 +406,6 @@ def tracking_inference_h5(frames_dir, components_info, img_shape=[540,540]):
         I2 = I[:, :, 1]
 
         if components[i] == 2:
-            #J = skimage.io.imread(os.path.join(
-            #    frames_dir, str(i) + '.png')) / 255.0
             frame_dict = video_dict[str(i)]
             J = boundary2mask(frame_dict, img_shape, num_mice=2)
 
@@ -461,17 +450,14 @@ def tracking_inference_h5(frames_dir, components_info, img_shape=[540,540]):
             frame_tracking_dict['mouse1'] = mouse1_boundary
             frame_tracking_dict['mouse2'] = mouse2_boundary
 
-            #I = I.astype(np.uint8) * 255
-            #skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
 
         else:
             frame_tracking_dict['mouse1'] = frame_dict['mouse1']
             frame_tracking_dict['mouse2'] = frame_dict['mouse2']
-            #I = I.astype(np.uint8) * 255
-            #skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), I)
+
 
         video_tracking_dict[str(i)] = frame_tracking_dict
-    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks_tracking.h5'), video_dict, compression=None)
+    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks.h5'), video_dict, compression=None)
 
     return video_tracking_dict
 
@@ -644,7 +630,8 @@ def mask_based_detection(tracking_dir, components_info, floor=[[51, 51], [490, 4
 def mask_based_detection_h5(video_tracking_dict, frames_dir, components_info, floor=[[51, 51], [490, 490]], image_shape=(540, 540)):
     """Detect snout and tailbase coordinated from masks
     Args:
-        tracking_dir: path to directory containing masks corresponding to identities
+        video_tracking_dict: mask boundary dictionary of the video
+        frames_dir: path to directory containing frames
         components_info: path to a csv file or an array
         floor: coordinates of top left and bottom right corners of rectangular floor zone
         image_shape: size of frames (height, width)
@@ -665,9 +652,6 @@ def mask_based_detection_h5(video_tracking_dict, frames_dir, components_info, fl
     floor_zone[floor[0][0]:floor[1][0], floor[0][1]:floor[1][1]] = 1
 
     for i in range(len(components)):
-        #print('frames: ', i)
-        # I = (skimage.io.imread(os.path.join(
-        #     tracking_dir, str(i) + '.png')) / 255.0).astype(int)
 
         I = boundary2mask(video_tracking_dict[str(i)], image_shape, num_mice=2)
 
@@ -751,16 +735,13 @@ def mask_based_detection_h5(video_tracking_dict, frames_dir, components_info, fl
                                        'snout_y': features_mouse1[:, 0],
                                        'tailbase_x': features_mouse1[:, 3],
                                        'tailbase_y': features_mouse1[:, 2]})
-    features_mouse1_df.to_csv(os.path.join(os.path.dirname(frames_dir), 'features_mouse1_md.csv'),
-                              index=False)
+
 
     features_mouse2 = np.round(features_mouse2, 2)
     features_mouse2_df = pd.DataFrame({'snout_x': features_mouse2[:, 1],
                                        'snout_y': features_mouse2[:, 0],
                                        'tailbase_x': features_mouse2[:, 3],
                                        'tailbase_y': features_mouse2[:, 2]})
-    features_mouse2_df.to_csv(os.path.join(os.path.dirname(frames_dir), 'features_mouse2_md.csv'),
-                              index=False)
 
     return np.array(features_mouse1_df), np.array(features_mouse2_df)
 
@@ -1019,9 +1000,10 @@ def mouse_mrcnn_segmentation(components_info, frames_dir, background_dir, model_
     return components
 
 
-def mouse_mrcnn_segmentation_h5(components_info, frames_dir, background_dir, model_dir, model_path=None):
+def mouse_mrcnn_segmentation_h5(video_dict, components_info, frames_dir, background_dir, model_dir, model_path=None):
     """Segment mice using Mask-RCNN model
     Args:
+        video_dict: dictionary for mask boundary 
         components_info: path to a csv file or an array
         frames_dir: path to frames directory
         background_dir: path to background image
@@ -1031,7 +1013,6 @@ def mouse_mrcnn_segmentation_h5(components_info, frames_dir, background_dir, mod
         components: array of the number of blobs in each frames
     """
     config = InferenceConfig()
-    # config.set_config(batch_size=1)
 
     # Create model object in inference mode.
     model = modellib.MaskRCNN(
@@ -1043,10 +1024,9 @@ def mouse_mrcnn_segmentation_h5(components_info, frames_dir, background_dir, mod
         model_path = model.find_last()
         model.load_weights(model_path, by_name=True)
 
-    output_dir = os.path.join(os.path.dirname(frames_dir), 'FG')
 
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+    # if not os.path.exists(output_dir):
+    #     os.mkdir(output_dir)
 
     bg = cv2.imread(background_dir)
 
@@ -1058,11 +1038,11 @@ def mouse_mrcnn_segmentation_h5(components_info, frames_dir, background_dir, mod
 
     print("The video has {} frames: ".format(components.shape[0]))
 
-    video_dict = dd.io.load(os.path.join(os.path.dirname(frames_dir), 'masks_fg.h5'))
 
     for i in range(components.shape[0]):
-        frame_dict = {}
+        
         if components[i] != 2:
+            frame_dict = {}
             image_name = str(i) + '.jpg'
             image = skimage.io.imread(frames_dir + '/' + image_name)
 
@@ -1109,24 +1089,12 @@ def mouse_mrcnn_segmentation_h5(components_info, frames_dir, background_dir, mod
                     mouse2_boundary[:, 0] = mouse2_boundary[:,1]
                     mouse2_boundary[:, 1] = mouse2_temp
 
-                    # frame_dict['mouse1'] = find_contours(img_as_ubyte(masks_1), 0.5)[0].astype(int)
-                    # frame_dict['mouse2'] = find_contours(img_as_ubyte(masks_2), 0.5)[0].astype(int)
                     frame_dict['mouse1'] =  mouse1_boundary
                     frame_dict['mouse2'] =  mouse2_boundary
 
+            video_dict[str(i)] = frame_dict            
 
-            skimage.io.imsave(os.path.join(
-                output_dir, str(i) + '.png'), masks_rgb)
-
-        video_dict[str(i)] = frame_dict            
-    
-    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks.h5'), video_dict, compression=None)
-
-    components_df = pd.DataFrame({'components': components})
-    components_df.to_csv(os.path.join(os.path.dirname(
-        frames_dir), 'components.csv'), index=False)
-
-    return components
+    return video_dict, components
 
 
 
@@ -1740,10 +1708,10 @@ def ensemble_features_multi_h5(mouse1_md, mouse2_md, mouse1_dlc, mouse2_dlc, com
                                        'tailbase_y': mouse2_ensemble[:, 3]})
 
     df_mouse1_ensemble.to_csv(os.path.join(os.path.dirname(frames_dir),
-                                           'mouse1_ensemble.csv'), index=False)
+                                           'mouse1.csv'), index=False)
 
     df_mouse2_ensemble.to_csv(os.path.join(os.path.dirname(frames_dir),
-                                           'mouse2_ensemble.csv'), index=False)
+                                           'mouse2.csv'), index=False)
 
     return df_mouse1_ensemble, df_mouse2_ensemble
 
@@ -1807,7 +1775,7 @@ def background_subtraction_single_h5(frames_dir, background, threshold, frame_in
         threshold: np.array
         frame_index: int
     Returns:
-        components: 1D array of number of blobs in each frame.
+        (frame_index, frame_dict, num_fg)
     """
     frame_dict = {}
 
@@ -1839,9 +1807,6 @@ def background_subtraction_single_h5(frames_dir, background, threshold, frame_in
         masks[:, :, 0] = img_as_ubyte(bw4_1)
         masks[:, :, 1] = img_as_ubyte(bw4_2)
 
-        # frame_dict['mouse1'] = find_contours(img_as_ubyte(bw4_1), 0.5)[0].astype(int)
-        # frame_dict['mouse2'] = find_contours(img_as_ubyte(bw4_2), 0.5)[0].astype(int)
-
 
         mouse1_boundary = find_contours(img_as_ubyte(bw4_1), 0.5)[0].astype(int)
         mouse1_temp = mouse1_boundary[:, 0].copy()
@@ -1856,12 +1821,7 @@ def background_subtraction_single_h5(frames_dir, background, threshold, frame_in
         
         frame_dict['mouse1'] = mouse1_boundary
         frame_dict['mouse2'] = mouse2_boundary
-
-
-    else:
-        masks[:, :, 0] = img_as_ubyte(bw3)
-
-    skimage.io.imsave(os.path.join(os.path.dirname(frames_dir), 'FG_parallel/'+str(frame_index) + '.png'), masks)
+    
 
     return (frame_index, frame_dict, num_fg)
  
@@ -1906,14 +1866,10 @@ def background_subtraction_parallel_h5(frames_dir, background_path, num_processo
         background_dir: path to the background image
         num_processors: int
     returns:
+        video_dict: dictionary for mask boundary
         components: 1D array of number of blobs in each frame.
     """
     video_dict = {}
-    fg_dir = os.path.join(os.path.dirname(frames_dir), 'FG')
-
-    if not os.path.exists(fg_dir):
-        os.mkdir(fg_dir)
-    # clean_dir_safe(fg_dir)
 
     background = img_as_float(skimage.io.imread(background_path))
     if background.ndim == 3:
@@ -1927,14 +1883,12 @@ def background_subtraction_parallel_h5(frames_dir, background_path, num_processo
     output = p.starmap(background_subtraction_single_h5, [(
         frames_dir, background, threshold, i) for i in range(0, len(frames_list))])
 
-    num_fg_list =[]
+    num_fg_list =np.zeros(len(output))
     for (frame_index, frame_dict, num_fg) in output:
         video_dict[str(frame_index)] = frame_dict
-        num_fg_list.append(num_fg)
-
-    dd.io.save(os.path.join(os.path.dirname(frames_dir), 'masks_fg.h5'), video_dict, compression=None)
+        num_fg_list[frame_index] = num_fg
     
-    return np.array(num_fg_list)
+    return video_dict, np.array(num_fg_list)
 
 
 
