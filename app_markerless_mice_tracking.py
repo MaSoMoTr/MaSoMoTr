@@ -367,8 +367,7 @@ def main():
                 # correct masks
 
                 swap_frames_list = df_swap.index[df_swap['swap'] == True].tolist()
-                # tracking_dir = os.path.join(
-                #     os.path.dirname(frames_dir), 'tracking')
+
                 for i in swap_frames_list:
 
                     frame_current_dict = video_correct_dict[str(i)]
