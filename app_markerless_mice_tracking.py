@@ -276,7 +276,7 @@ def main():
 
                 # -----------------ensemble--------------------
 
-                 df_mouse1_ensemble, df_mouse2_ensemble = ensemble_features_multi_h5(
+                df_mouse1_ensemble, df_mouse2_ensemble = ensemble_features_multi_h5(
                     df_mouse1_md, df_mouse2_md, df_mouse1_dlc, df_mouse2_dlc, components, video_tracking_dict, BG.shape, frames_dir)
 
         # ------------Validating results---------------------------------------
