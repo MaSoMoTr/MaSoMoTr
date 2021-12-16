@@ -6,9 +6,9 @@ import skimage.io
 import skimage
 from PIL import Image, ImageDraw
 import multiprocessing
-from mouse.utils import dlc_snout_tailbase, behavior_feature_extraction, deeplabcut_detection_multi_without_refine
+from mouse.utils import dlc_snout_tailbase, deeplabcut_detection_multi_without_refine
 from mouse.utils import check_mrcnn_model_path, tracking_inference_h5, mask_based_detection_h5, ensemble_features_multi_h5
-from mouse.utils import video2frames, background_subtraction_parallel, mouse_mrcnn_segmentation
+from mouse.utils import video2frames
 from mouse.utils import mouse_mrcnn_segmentation_h5, background_subtraction_parallel_h5
 import shutil
 import ntpath
