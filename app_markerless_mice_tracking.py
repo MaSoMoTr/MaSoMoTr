@@ -176,7 +176,7 @@ def main():
             'Floor_offset_y', min_value=0, max_value=BG.shape[0], value=50)
 
         rr, cc = skimage.draw.rectangle(start=(y_offset, x_offset), end=(
-            BG.shape[0]-y_offset, BG.shape[1]-x_offset), shape=BG.shape)
+            BG.shape[0]-y_offset, BG.shape[1]-x_offset), shape=(BG.shape[0], BG.shape[1]))
         BG[rr, cc, 0:2] = 1
         right_column_floor.image(BG, caption='Background')
 
@@ -255,7 +255,7 @@ def main():
 
         # -----------------tracking inference---------------------------
 
-                video_tracking_dict=tracking_inference_h5(video_dict, frames_dir, components, BG.shape)
+                video_tracking_dict=tracking_inference_h5(video_dict, frames_dir, components, (BG.shape[0], BG.shape[1]))
 
         # ---------------deeplabcut detection-------------------------
                 dlc_result = deeplabcut_detection_multi_without_refine(config_path=dlc_config,
@@ -277,7 +277,9 @@ def main():
                 # -----------------ensemble--------------------
 
                 df_mouse1_ensemble, df_mouse2_ensemble = ensemble_features_multi_h5(
-                    df_mouse1_md, df_mouse2_md, df_mouse1_dlc, df_mouse2_dlc, components, video_tracking_dict, BG.shape, frames_dir)
+                    df_mouse1_md, df_mouse2_md, df_mouse1_dlc, df_mouse2_dlc, components, video_tracking_dict, (BG.shape[0], BG.shape[1]), frames_dir)
+
+                print('finish tracking: ', tracking_video_dir)
 
         # ------------Validating results---------------------------------------
 
