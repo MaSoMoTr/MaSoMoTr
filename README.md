@@ -8,7 +8,7 @@ The code has been run successfully on Windows 7 and 10 with an NVIDIA GPU (Titan
 2. [Anaconda](https://www.anaconda.com/distribution/) is highly recommended to install Python 3
 3. Install dependencies with our provided Anaconda environments
    ```bash
-   conda env create -f conda-environments/environment_windowsGPU.yml
+   conda env create -f conda-environments/markerless-mice-tracking-windowsGPU.yaml
    ```
 
 4. Activate the environment 
