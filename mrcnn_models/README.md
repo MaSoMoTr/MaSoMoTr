@@ -1,1 +1,1 @@
-This is the folder that will contain trained models.
+This is the folder that will contain Mask RCNN models.

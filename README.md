@@ -32,7 +32,7 @@ retrain Mask-RCNN and Deeplabcut models on your own data.
 To track mice in new videos, you can launch the GUI by executing:
 
    ```bash
-   streamlit run app_markerless_mice_tracking.py -- --video=/path/to/video_dir/  --background=/path/to/background_dir/--mrcnn_model=/path/to/model_dir/
+   streamlit run app_markerless_mice_tracking.py -- --video=/path/to/video_dir/  --background=/path/to/background_dir/--mrcnn_model=/path/to/model_dir/ --dlc_model=/path/to/dlc_project_dir/
    ```
 
 Follow the GUI to specify the inputs for the pipeline including video .avi, background .jpg, Mask-RCNN model .h5, config.yaml of DeepLabCut project.
