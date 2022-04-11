@@ -21,7 +21,7 @@ To run Mask-RCNN and DeepLabCut using GPU, CUDA and cuDNN  must be installed acc
 To apply the algorithm to new videos which have significantly different settings compared with our settings described in the paper, we recommend you to
 retrain Mask-RCNN and Deeplabcut models on your own data.
 
-- The workflow to train Mask-RCNN model can be found in the Jupyter Notebook *pipelines/mrcnn_training.ipynb*. A tutorial video assuming the steps above have been completed is at https://youtu.be/slhlq_QKNO8
+- The workflow to train Mask-RCNN model can be found in the Jupyter Notebook *pipelines/mrcnn_training.ipynb*. A tutorial video assuming the installation steps above have been completed is at https://youtu.be/slhlq_QKNO8
 
 - Instructions for training a DLC model can be found in [DeepLabCut repository](https://github.com/DeepLabCut/DeepLabCut)
 
