@@ -33,7 +33,7 @@ To track mice in new videos, a streamlit-based GUI is provided. A video tutorial
    ```
 
 Follow the GUI to specify the inputs for the pipeline including video .avi, background .jpg, Mask-RCNN model .h5, config.yaml of DeepLabCut project.
-* Output of the workflow are two csv files storing coordinates of snout and tailbase corresponding to two mice: *mouse1_ensemble.csv* and *mouse2_ensemble.csv*, and a file *masks.h5* containing masks of the two mice. 
+* Output of the workflow are two CSV files storing coordinates of snout and tailbase corresponding to two mice: *mouse1.csv* and *mouse2.csv*, and a file *masks.h5* containing masks of the two mice. 
 
 
 
