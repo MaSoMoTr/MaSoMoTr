@@ -17,16 +17,14 @@ The code has been run successfully on Windows 7 and 10 with NVIDIA GPUs (Titan X
    conda activate markerless_mice_tracking_windowsGPU
    ```
 To run Mask-RCNN and DeepLabCut using GPU, CUDA and cuDNN  must be installed according to Tensorflow documentation [GPU support](https://www.tensorflow.org/install/source#gpu). 
+
 ## Applying the algorithm on your own data
 To apply the algorithm to new videos which have significantly different settings compared with our settings described in the paper, we recommend you to
-retrain Mask-RCNN and Deeplabcut models on your own data. A tutorial video assuming the installation steps above have been completed is at https://youtu.be/slhlq_QKNO8
+retrain Mask RCNN and Deeplabcut models on your own data. A tutorial video for training the Mash RCNN (assuming the installation steps above have been completed) is at https://youtu.be/slhlq_QKNO8
 
 - The workflow to train Mask-RCNN model can be found in the Jupyter Notebook *pipelines/mrcnn_training.ipynb*. 
 
 - Instructions for training a DLC model can be found in [DeepLabCut repository](https://github.com/DeepLabCut/DeepLabCut)
-
-   DeepLabCut can be trained via GUI by executing:  `python -m deeplabcut`
-
 
 To track mice in new videos, a streamlit-based GUI is provided. A video tutorial for the above process is at https://youtu.be/sfZiiN_cCCw
 
