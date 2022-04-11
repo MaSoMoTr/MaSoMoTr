@@ -26,7 +26,7 @@ retrain Mask RCNN and Deeplabcut models on your own data. A tutorial video for t
 
 - Instructions for training a DLC model can be found in [DeepLabCut repository](https://github.com/DeepLabCut/DeepLabCut)
 
-To track mice in new videos, a streamlit-based GUI is provided. A video tutorial for the above process is at https://youtu.be/sfZiiN_cCCw
+To track mice in new videos, a Streamlit-based GUI is provided. A video tutorial for the above process is at https://youtu.be/sfZiiN_cCCw
 
    ```bash
    streamlit run app_markerless_mice_tracking.py -- --video=path_to_video_dir/  --background=path_to_background_image_dir/ --mrcnn_model=path_to_mrcnn_model_dir/ --dlc_project=path_to_dlc_project_dir/
