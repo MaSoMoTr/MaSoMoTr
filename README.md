@@ -19,25 +19,25 @@ The code has been run successfully on Windows 7 and 10 with NVIDIA GPUs (Titan X
 To run Mask-RCNN and DeepLabCut using GPU, CUDA and cuDNN  must be installed according to Tensorflow documentation [GPU support](https://www.tensorflow.org/install/source#gpu). 
 ## Applying the algorithm on your own data
 To apply the algorithm to new videos which have significantly different settings compared with our settings described in the paper, we recommend you to
-retrain Mask-RCNN and Deeplabcut models on your own data.
+retrain Mask-RCNN and Deeplabcut models on your own data. A tutorial video assuming the installation steps above have been completed is at https://youtu.be/slhlq_QKNO8
 
-- The workflow to train Mask-RCNN model can be found in the Jupyter Notebook *pipelines/mrcnn_training.ipynb*. A tutorial video assuming the installation steps above have been completed is at https://youtu.be/slhlq_QKNO8
+- The workflow to train Mask-RCNN model can be found in the Jupyter Notebook *pipelines/mrcnn_training.ipynb*. 
 
 - Instructions for training a DLC model can be found in [DeepLabCut repository](https://github.com/DeepLabCut/DeepLabCut)
 
    DeepLabCut can be trained via GUI by executing:  `python -m deeplabcut`
 
 
-To track mice in new videos, you can launch the GUI by executing:
+To track mice in new videos, a streamlit-based GUI is provided. A video tutorial for the above process is at https://youtu.be/sfZiiN_cCCw
 
    ```bash
-   streamlit run app_markerless_mice_tracking.py -- --video=/path/to/video_dir/  --background=/path/to/background_dir/--mrcnn_model=/path/to/model_dir/ --dlc_project=/path/to/dlc_project_dir/
+   streamlit run app_markerless_mice_tracking.py -- --video=path_to_video_dir/  --background=path_to_background_image_dir/ --mrcnn_model=path_to_mrcnn_model_dir/ --dlc_project=path_to_dlc_project_dir/
    ```
 
 Follow the GUI to specify the inputs for the pipeline including video .avi, background .jpg, Mask-RCNN model .h5, config.yaml of DeepLabCut project.
-* Output of the workflow are two csv files storing coordinates of snout and tailbase corresponding to two mice: *mouse1_ensemble.csv* and *mouse2_ensemble.csv*, and folder *tracking* containing masks of mice. 
+* Output of the workflow are two csv files storing coordinates of snout and tailbase corresponding to two mice: *mouse1_ensemble.csv* and *mouse2_ensemble.csv*, and a file *masks.h5* containing masks of the two mice. 
 
-A video tutorial for the above process is at https://youtu.be/sfZiiN_cCCw
+
 
 ## Pretrained models and video samples 
 1. Mask-RCNN model [Download](http://people.ucalgary.ca/~kmurari/masomotr/trainedModels/mask_rcnn_mouse_0025.h5)
