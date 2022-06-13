@@ -212,7 +212,7 @@ def main():
     #training_maskrcnn = st.sidebar.checkbox('Train MaskRCNN')
 
     if tab=="Train Mask-RCNN":
-        st.subheader('Train data preparation')
+        st.subheader('Train Mask-RCNN Model')
 
         # select video for training
         video_left_column, video_right_column = st.columns(2)  
@@ -269,7 +269,7 @@ def main():
         click_train = train_right_column .button('STEP 5: train Mask RCNN')
 
 
-        print("Train network heads")
+        
         if click_train:
             # Mask-RCNN model
             # Directory to save logs and trained model
@@ -336,6 +336,8 @@ def main():
                                                         iaa.Affine(rotate=270)]),
                                             iaa.Multiply((0.8, 1.5)),
                                             iaa.GaussianBlur(sigma=(0.0, 5.0))])
+
+            print("Train network heads")
             model.train(dataset_train, dataset_val,
             learning_rate=config.LEARNING_RATE,
             epochs=10,
@@ -347,7 +349,9 @@ def main():
             print('call 1: ' + st.session_state.just_train)
     #-------------------DLC-----------------------------
     elif tab=="Train maDLC":
-        st.write('Traing maDLC')
+        st.subheader('Train maDeepLabCut Model')
+        os.system('python -m deeplabcut')
+
     
 
     elif tab=="Tracking Pipeline":

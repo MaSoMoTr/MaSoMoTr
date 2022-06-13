@@ -233,15 +233,19 @@ def create_dataset(images_dir, components_info, num_annotations):
     os.mkdir(dataset_dir)
 
     touching = [i for i in range(len(components)) if components[i] == 1]
+
     if (components == 1).sum() > num_annotations:
         random.shuffle(touching)
         for image_id in touching[:num_annotations]:
             copyfile(os.path.join(images_dir, str(image_id) + '.jpg'),
                      os.path.join(dataset_dir, str(image_id) + '.jpg'))
     else:
-        for image_id in touching:
+        image_list = [i for i in range(len(components))]
+        random.shuffle(image_list)
+        for image_id in image_list[:num_annotations]:
             copyfile(os.path.join(images_dir, str(image_id) + '.jpg'),
                      os.path.join(dataset_dir, str(image_id) + '.jpg'))
+
 
 
 def correct_segmentation_errors(components_info, fix_dir, frames_dir):
@@ -1717,7 +1721,7 @@ def ensemble_features_multi_h5(mouse1_md, mouse2_md, mouse1_dlc, mouse2_dlc, com
 
 
 
-def background_subtraction_single(frames_dir, fg_dir, background, threshold, frame_index):
+def background_subtraction_single(frames_dir, background, threshold, frame_index):
     """Generate foregrounds corresponding to frames
     Args:
         frames_dir: path to directory containing frames
@@ -1837,10 +1841,10 @@ def background_subtraction_parallel(frames_dir, background_path, num_processors=
         components: 1D array of number of blobs in each frame.
     """
 
-    fg_dir = os.path.join(os.path.dirname(frames_dir), 'FG')
+    #fg_dir = os.path.join(os.path.dirname(frames_dir), 'FG')
 
-    if not os.path.exists(fg_dir):
-        os.mkdir(fg_dir)
+    # if not os.path.exists(fg_dir):
+    #     os.mkdir(fg_dir)
     # clean_dir_safe(fg_dir)
 
     background = img_as_float(skimage.io.imread(background_path))
@@ -1853,7 +1857,7 @@ def background_subtraction_parallel(frames_dir, background_path, num_processors=
 
     p = Pool(processes=num_processors)
     output = p.starmap(background_subtraction_single, [(
-        frames_dir, fg_dir, background, threshold, i) for i in range(0, len(frames_list))])
+        frames_dir, background, threshold, i) for i in range(0, len(frames_list))])
 
 
     return np.array(output)
