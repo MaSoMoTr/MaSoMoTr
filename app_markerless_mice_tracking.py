@@ -19,8 +19,30 @@ import streamlit as st
 import deepdish as dd
 import os
 import sys
+
+
 ROOT_DIR = os.path.abspath("./")
 sys.path.append(ROOT_DIR)  # To find local version of the library
+
+#--------------------------------------
+
+# Root directory of the project
+#ROOT_DIR = os.path.abspath("../")
+
+# Import Mask RCNN
+sys.path.append(ROOT_DIR)  # To find local version of the library
+
+from mrcnn import utils
+import mrcnn.model as modellib
+from mrcnn import visualize
+from mrcnn.model import log
+from imgaug import augmenters as iaa
+from mouse.utils import video2frames, background_subtraction, split_train_val, create_dataset,  background_subtraction_parallel
+from mouse.mouse import MouseConfig, MouseDataset
+import multiprocessing
+
+
+
 
 
 # Root directory of the project
@@ -33,6 +55,7 @@ def background_file_selector(folder_path):
     file_index = list_file.index(selected_filename)
     return filenames[file_index]
 
+
 # -----------select a video----------------------------
 
 
@@ -44,15 +67,31 @@ def video_file_selector(folder_path):
     file_index = list_file.index(selected_filename)
     return filenames[file_index]
 
+
+def file_selector_location(folder_path, location, title, format='avi'):
+    filenames = glob.glob(folder_path + '/*.' + format)
+    list_file = [ntpath.basename(file) for file in filenames]
+    selected_filename = location.selectbox(
+        title, list_file)
+    file_index = list_file.index(selected_filename)
+    return filenames[file_index]
+
 # ---------select MaskRCNN model----------------------
 
 
 #@st.cache()
-def mrcnn_model_selector(folder_path):
+def mrcnn_model_selector(folder_path, last_train=None):
     filenames = glob.glob(folder_path+'/*.h5')
-    list_file = [ntpath.basename(file) for file in filenames]
-    selected_filename = st.selectbox('Select an Mask-RCNN model', list_file)
-    file_index = list_file.index(selected_filename)
+
+
+    list_model = [ntpath.basename(file) for file in filenames]
+
+    if last_train !=None:
+        filenames.append(last_train)
+        list_model.append('Last train')
+
+    selected_filename = st.selectbox('STEP 2: Select an Mask-RCNN model', list_model)
+    file_index = list_model.index(selected_filename)
     return filenames[file_index]
 
 # ----------select dlc result -----------------------
@@ -74,7 +113,7 @@ def dlc_config_selector(dlc_project):
 
     list_file = [ntpath.basename(file) for file in filenames]
     selected_filename = st.selectbox(
-        'Select DeepLabCut config file', list_file)
+        'STEP 3: Select DeepLabCut config file', list_file)
 
     file_index = list_file.index(selected_filename)
     return filenames[file_index]
@@ -135,6 +174,11 @@ def main():
                         metavar="/path/to/video_dir/",
                         help="Path to videos in avi")
 
+    parser.add_argument("--video_train", required=False,
+                        default='videos',
+                        metavar="/path/to/video_dir/",
+                        help="Path to videos in avi")
+
     parser.add_argument("--background", required=False,
                         default='videos',
                         metavar="/path/to/bg_dir/",
@@ -150,59 +194,264 @@ def main():
                         default='dlc_models/dlc_mice_model',
                         help='Path to deeplabcut project containing config.yaml')
 
+    parser.add_argument('--mrcnn_dataset', required=False,
+                        metavar="/path/to/mrcnn_dataset/",
+                        default='datasets/mrcnn',
+                        help='Path to mrcnn dataset')
+
+
     args = parser.parse_args()
 
-    tracking = st.sidebar.checkbox('Tracking Pipeline')
-    tracking_video_dir = video_file_selector(folder_path=args.video)
+    #st.session_state.just_train=None
+    if 'just_train' not in st.session_state:
+        st.session_state.just_train = None
+    #-------------------------------------------------
+    tab  = st.sidebar.selectbox('Select tab', ('Train Mask-RCNN', 'Train maDLC', 'Tracking Pipeline', 'Validate Identities', 'Validate Keypoints'))
 
-    if tracking:
+    #-------------------Mask RCNN --------------------
+    #training_maskrcnn = st.sidebar.checkbox('Train MaskRCNN')
+
+    if tab=="Train Mask-RCNN":
+        st.subheader('Train data preparation')
+
+        # select video for training
+        video_left_column, video_right_column = st.columns(2)  
+        train_video_dir = file_selector_location(folder_path=args.video_train, location=video_left_column, title="Select video:", format='avi')
+
+        # Extracting frames from the video
+        train_frames_dir = os.path.join(os.path.splitext(train_video_dir)[0], 'images')
+        click_extract = video_right_column.button('STEP 1: extract to frames')
+        if click_extract:
+            video2frames(train_video_dir)
+
+        # Select background image
+        image_left_column, image_right_column = st.columns(2) 
+        background_filename = file_selector_location(folder_path=args.background, location=image_left_column, title="Select image:", format='jpg')
+
+        click_image = image_right_column.checkbox('Display background')
+        if click_image:
+            BG = img_as_float(skimage.io.imread(background_filename))
+            if BG.ndim == 2:
+                BG = gray2rgb(BG)
+
+            st.image(BG, caption='Background')
+
+
+        # get image for annotation
+        left_column, right_column = st.columns(2)   
+        num_img = left_column.number_input('Dataset size', value=20)
+        select_images = right_column.button('STEP 2: select images for annotation')
+
+        if select_images:
+            components = background_subtraction_parallel(train_frames_dir, background_filename, num_processors=2) 
+
+            create_dataset(train_frames_dir,components, num_annotations=num_img)   # increase dataset by increasing num_annotations 
+
+        dataset_dir = os.path.join(os.path.dirname(train_frames_dir), 'dataset')
+
+        # Label images
+        label_left_column, label_right_column = st.columns(2)
+        click_annotation = label_left_column.button('STEP 3: annotation')
+        click_split = label_right_column.button('STEP 4: split dataset')
+
+        if click_annotation:
+            os.system('labelme')
+
+        if click_split:
+            split_train_val(dataset_dir, frac_split_train=0.8)
+
+
+        
+
+        # -----------train the model--------------
+        train_left_column, train_right_column = st.columns(2) 
+        init_with  = train_left_column.selectbox('Initial weights?', ('coco', 'imagenet', 'last'))
+        click_train = train_right_column .button('STEP 5: train Mask RCNN')
+
+
+        print("Train network heads")
+        if click_train:
+            # Mask-RCNN model
+            # Directory to save logs and trained model
+            MODEL_DIR = os.path.join(ROOT_DIR, "mrcnn_models")
+
+            train_size = len([f for f in os.listdir(os.path.join(dataset_dir, 'train')) if f.endswith('.jpg')])
+            val_size = len([f for f in os.listdir(os.path.join(dataset_dir, 'val')) if f.endswith('.jpg')])
+
+            config = MouseConfig()
+            config.STEPS_PER_EPOCH = int(train_size // config.IMAGES_PER_GPU)
+            config.VALIDATION_STEPS = int(val_size // config.IMAGES_PER_GPU)
+            config.display()
+
+            # Create model in training mode
+            model = modellib.MaskRCNN(mode="training", config=config,
+                                model_dir=MODEL_DIR)
+
+
+            # Training dataset.
+            dataset_train = MouseDataset()
+            dataset_train.load_mouse(dataset_dir, "train")
+            dataset_train.prepare()
+
+            # Validation dataset
+            dataset_val = MouseDataset()
+            dataset_val.load_mouse(dataset_dir, "val")
+            dataset_val.prepare()
+
+
+
+
+
+            # Local path to trained weights file
+            COCO_MODEL_PATH = os.path.join(ROOT_DIR,"mrcnn_models", "mask_rcnn_coco.h5")
+            # Download COCO trained weights from Releases if needed
+            if not os.path.exists(COCO_MODEL_PATH):
+                utils.download_trained_weights(COCO_MODEL_PATH)
+
+            #dataset_dir= 'datasets/mrcnn'
+
+            # Create model in training mode
+            model = modellib.MaskRCNN(mode="training", config=config, model_dir=MODEL_DIR)
+
+            if init_with == "imagenet":
+                model.load_weights(model.get_imagenet_weights(), by_name=True)
+            elif init_with == "coco":
+                # Load weights trained on MS COCO, but skip layers that
+                # are different due to the different number of classes
+                # See README for instructions to download the COCO weights
+                model.load_weights(COCO_MODEL_PATH, by_name=True,
+                                exclude=["mrcnn_class_logits", "mrcnn_bbox_fc", 
+                                            "mrcnn_bbox", "mrcnn_mask"])
+            elif init_with == "last":
+                # Load the last model you trained and continue training
+                model.load_weights(model.find_last(), by_name=True)
+
+
+            # Image augmentation
+            # http://imgaug.readthedocs.io/en/latest/source/augmenters.html
+            augmentation = iaa.SomeOf((0, 2), [iaa.Fliplr(0.5),
+                                            iaa.Flipud(0.5),
+                                            iaa.OneOf([iaa.Affine(rotate=90),
+                                                        iaa.Affine(rotate=180),
+                                                        iaa.Affine(rotate=270)]),
+                                            iaa.Multiply((0.8, 1.5)),
+                                            iaa.GaussianBlur(sigma=(0.0, 5.0))])
+            model.train(dataset_train, dataset_val,
+            learning_rate=config.LEARNING_RATE,
+            epochs=10,
+            augmentation=augmentation,
+            layers='heads')
+
+            st.session_state.just_train = model.find_last()
+            #st.session_state.just_train = model.find_last()
+            print('call 1: ' + st.session_state.just_train)
+    #-------------------DLC-----------------------------
+    elif tab=="Train maDLC":
+        st.write('Traing maDLC')
+    
+
+    elif tab=="Tracking Pipeline":
+        # select video for training
+        track_left_column, track_right_column = st.columns(2)  
+        track_video_dir = file_selector_location(folder_path=args.video_train, location=track_left_column, title="Select video:", format='avi')
+
+        # Extracting frames from the video
+        track_frames_dir = os.path.join(os.path.splitext(track_video_dir)[0], 'images')
+        click_extract = track_right_column.button('Extract to frames')
+        if click_extract:
+            video2frames(track_video_dir)
+
+        #----------------------
+        # Select background image
+
         st.subheader('Tracking settings')
 
-        # Select data and model
-        background_filename = background_file_selector(
-            folder_path=args.background)
-
+        image_left_column, image_right_column = st.columns(2) 
+        background_filename = file_selector_location(folder_path=args.background, location=image_left_column, title="Select background image:", format='jpg')
         BG = img_as_float(skimage.io.imread(background_filename))
-        if BG.ndim == 2:
-            BG = gray2rgb(BG)
 
-        left_column_floor, right_column_floor = st.beta_columns(2)
+        click_image = image_right_column.checkbox('Display background')
 
-        # ---------------------------------------------------------------------------
+        st.session_state.x_offset = 50
+        st.session_state.y_offset = 50
 
-        x_offset = left_column_floor.number_input(
-            'Floor_offset_x', min_value=0, max_value=BG.shape[1], value=50)
-        y_offset = right_column_floor.number_input(
-            'Floor_offset_y', min_value=0, max_value=BG.shape[0], value=50)
 
-        rr, cc = skimage.draw.rectangle(start=(y_offset, x_offset), end=(
-            BG.shape[0]-y_offset, BG.shape[1]-x_offset), shape=(BG.shape[0], BG.shape[1]))
-        BG[rr, cc, 0:2] = 1
-        right_column_floor.image(BG, caption='Background')
+        if click_image:
+            
+            if BG.ndim == 2:
+                BG = gray2rgb(BG)
+
+            left_column_floor, right_column_floor = st.columns(2)
+            st.session_state.x_offset  = left_column_floor.number_input(
+                'Floor_offset_x', min_value=0, max_value=BG.shape[1], value=50)
+            st.session_state.y_offset  = right_column_floor.number_input(
+                'Floor_offset_y', min_value=0, max_value=BG.shape[0], value=50)
+
+            rr, cc = skimage.draw.rectangle(start=(st.session_state.y_offset, st.session_state.x_offset), end=(
+                BG.shape[0]-st.session_state.y_offset, BG.shape[1]-st.session_state.x_offset), shape=(BG.shape[0], BG.shape[1]))
+            BG[rr, cc, 0:2] = 1
+            right_column_floor.image(BG, caption='Background')
+
+            #st.image(BG, caption='Background')
+
+
+
+        #----------------------
+        # tracking_video_dir = video_file_selector(folder_path=args.video)
+        # click1 = st.button('Extract the video into frames')
+
+        # st.subheader('Tracking settings')
+
+        
+
+        # # Select data and model
+        # background_filename = background_file_selector(
+        #     folder_path=args.background)
+
+        # BG = img_as_float(skimage.io.imread(background_filename))
+        # if BG.ndim == 2:
+        #     BG = gray2rgb(BG)
+
+        # left_column_floor, right_column_floor = st.columns(2)
+
+        # # ---------------------------------------------------------------------------
+
+        # x_offset = left_column_floor.number_input(
+        #     'Floor_offset_x', min_value=0, max_value=BG.shape[1], value=50)
+        # y_offset = right_column_floor.number_input(
+        #     'Floor_offset_y', min_value=0, max_value=BG.shape[0], value=50)
+
+        # rr, cc = skimage.draw.rectangle(start=(y_offset, x_offset), end=(
+        #     BG.shape[0]-y_offset, BG.shape[1]-x_offset), shape=(BG.shape[0], BG.shape[1]))
+        # BG[rr, cc, 0:2] = 1
+        # right_column_floor.image(BG, caption='Background')
 
         # ----------------------------------------------------------------------
-        MRCNN_MODEL_PATH = mrcnn_model_selector(folder_path=args.mrcnn_model)
+        #print(st.session_state.just_train)
+        print(st.session_state.just_train)
+        MRCNN_MODEL_PATH = mrcnn_model_selector(folder_path=args.mrcnn_model, last_train=st.session_state.just_train)
 
         # --------------------------------------------------------------------
         dlc_config = dlc_config_selector(dlc_project=args.dlc_project)
 
-        loc1, loc2, loc3, loc4 = st.beta_columns(4)
+        loc1, loc2, loc3, loc4 = st.columns(4)
         shuffle = loc1.number_input('Shuffle', value=1)
         trainingsetindex = loc2.number_input('Training set index', value=0)
         track_method = loc3.selectbox(
             'Track method', ('ellipse', 'skeleton', 'box'))
         videotype = loc4.selectbox('Video type', ('avi', 'mp4'))
 
-        if (background_filename != None) & (tracking_video_dir != None) & (MRCNN_MODEL_PATH != None) & (dlc_config != None):
+        if (background_filename != None) & (track_video_dir != None) & (MRCNN_MODEL_PATH != None) & (dlc_config != None):
             frames_dir = os.path.join(os.path.splitext(
-                tracking_video_dir)[0], "images")
+                track_video_dir)[0], "images")
             # ----------- Extracting the video into frames --------
-            click1 = st.sidebar.button('Extract the video into frames')
-            if click1:
-                frames_dir = video2frames(tracking_video_dir)
+            
+            # if click1:
+            #     print('Extracting video to frames!')
+            #     frames_dir = video2frames(tracking_video_dir)
 
             # -------------background subtraction-----------------
-            left_column_approach, right_column_approach = st.beta_columns(2)
+            left_column_approach, right_column_approach = st.columns(2)
             check = left_column_approach.checkbox('Hybrid approach')
 
             if check:
@@ -212,8 +461,9 @@ def main():
 
             # ----------select dlc result -----------------------
 
-            click2 = st.sidebar.button('Track the animals')
+            click2 = st.button('Track the animals')
             if click2:
+                print('Tracking animals!')
 
                 if check:
                     video_dict, components = background_subtraction_parallel_h5(
@@ -221,7 +471,7 @@ def main():
 
                 else:
                     frames_dir = os.path.join(os.path.splitext(
-                        tracking_video_dir)[0], "images")
+                        track_video_dir)[0], "images")
                     n_frames = len(os.listdir(frames_dir))
                     components = np.zeros((n_frames,))
 
@@ -259,7 +509,7 @@ def main():
 
         # ---------------deeplabcut detection-------------------------
                 dlc_result = deeplabcut_detection_multi_without_refine(config_path=dlc_config,
-                                                                       video_path=tracking_video_dir, shuffle=shuffle,
+                                                                       video_path=track_video_dir, shuffle=shuffle,
                                                                        trainingsetindex=trainingsetindex,
                                                                        track_method=track_method, videotype=videotype)
 
@@ -268,8 +518,8 @@ def main():
 
         # ---------------mask-based detection--------------------------
 
-                floor = [[y_offset+1, x_offset+1],
-                         [BG.shape[0]-y_offset, BG.shape[1]-x_offset]]
+                floor = [[st.session_state.y_offset+1, st.session_state.x_offset+1],
+                         [BG.shape[0]-st.session_state.y_offset, BG.shape[1]-st.session_state.x_offset]]
 
                 df_mouse1_md, df_mouse2_md = mask_based_detection_h5(
                     video_tracking_dict, frames_dir, components, floor=floor, image_shape=(BG.shape[0], BG.shape[1]))
@@ -279,16 +529,16 @@ def main():
                 df_mouse1_ensemble, df_mouse2_ensemble = ensemble_features_multi_h5(
                     df_mouse1_md, df_mouse2_md, df_mouse1_dlc, df_mouse2_dlc, components, video_tracking_dict, (BG.shape[0], BG.shape[1]), frames_dir)
 
-                print('finish tracking: ', tracking_video_dir)
+                print('finish tracking: ', track_video_dir)
 
         # ------------Validating results---------------------------------------
 
-    validate1 = st.sidebar.checkbox('Validate Tracking Results')
+    #validate1 = st.sidebar.checkbox('Validate Tracking Results')
 
-    if validate1:
+    elif tab=="Validate Identities":
 
         frames_dir = os.path.join(os.path.splitext(
-            tracking_video_dir)[0], "images")
+            track_video_dir)[0], "images")
 
         df_swap = initial_swap_status(frames_dir)  # -----------------
 
@@ -344,7 +594,7 @@ def main():
 
             st.image(image, caption='frame: ' + str(frame_index))
 
-            validation_bt1, validation_bt2 = st.beta_columns(2)
+            validation_bt1, validation_bt2 = st.columns(2)
             click6 = validation_bt1.button('Switch identities')
 
             if click6:
@@ -384,8 +634,8 @@ def main():
                 # reset swap
                 df_swap['swap'] = False
 
-    validate2 = st.sidebar.checkbox('Validate keypoints')
-    if validate2:
+    #validate2 = st.sidebar.checkbox('Validate keypoints')
+    elif tab=="Validate Keypoints":
         frames_dir = os.path.join(os.path.splitext(
             tracking_video_dir)[0], "images")
 

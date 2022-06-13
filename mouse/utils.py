@@ -1761,7 +1761,7 @@ def background_subtraction_single(frames_dir, fg_dir, background, threshold, fra
     else:
         masks[:, :, 0] = img_as_ubyte(bw3)
 
-    skimage.io.imsave(os.path.join(fg_dir, str(frame_index) + '.png'), masks)
+    #skimage.io.imsave(os.path.join(fg_dir, str(frame_index) + '.png'), masks)
 
     return num_fg
 
