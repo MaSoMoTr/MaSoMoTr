@@ -224,11 +224,20 @@ def main():
 
 
 
-    tab  = st.sidebar.selectbox('Select tab', ('1.Train DeepLabCut','2.Train Mask R-CNN', '3.Tracking Pipeline', '4.Validate Identities', '5.Validate Keypoints'))
+    tab  = st.sidebar.selectbox('Select tab', ('1.Train maDeepLabCut','2.Train Mask R-CNN', '3.Tracking Pipeline', '4.Validate Identities', '5.Validate Keypoints'))
 
     #-------------------Mask RCNN -------------------
 
-    if tab=="2.Train Mask R-CNN":
+    if tab=="1.Train maDeepLabCut":
+        st.subheader('Train maDeepLabCut Model')
+
+        st.write('Create a new maDeepLabCut project in directory:  ', ROOT_DIR +'\dlc_models')
+        click_dlc = st .button('Launch DeepLabCut GUI')
+        if click_dlc:
+            os.system('python -m deeplabcut')
+
+    #-------------------DLC-----------------------------
+    elif tab=="2.Train Mask R-CNN":
         st.subheader('Train Mask R-CNN Model')
 
         # select video for training
@@ -286,6 +295,7 @@ def main():
 
         
         if click_train:
+            
             # Directory to save logs and trained model
             MODEL_DIR = os.path.join(ROOT_DIR, "mrcnn_models")
 
@@ -352,15 +362,6 @@ def main():
             augmentation=augmentation,
             layers='heads')
 
-
-    #-------------------DLC-----------------------------
-    elif tab=="1.Train DeepLabCut":
-        st.subheader('Train DeepLabCut Model')
-
-        st.write('Create a new DeepLabCut project in directory:  ', ROOT_DIR +'\dlc_models')
-        click_dlc = st .button('Launch DeepLabCut GUI')
-        if click_dlc:
-            os.system('python -m deeplabcut')
 
     
 
