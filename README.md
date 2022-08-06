@@ -28,7 +28,7 @@ Run the command line below to launch Streamlit-based UI
    ```
 If paths are not specified in the above command, streamlit will use default paths located in the project directory for loading videos and saving models. 
 - Select the tab "1.Train maDeepLabCut" and follow the instructions for training a DLC model which can be found in [DeepLabCut repository](https://github.com/DeepLabCut/DeepLabCut)
-- Select the tab "2.Train Mask R-CNN" and follow the workflow to train Mask-RCNN. A tutorial video for training the Mash RCNN (assuming the installation steps above have been completed) is at https://youtu.be/slhlq_QKNO8
+- Select the tab "2.Train Mask R-CNN" and follow the workflow to train Mask-RCNN. A tutorial video for training the Mask R-CNN (assuming the installation steps above have been completed) is at https://youtu.be/slhlq_QKNO8
 
 
 To track mice in new videos, select the tab "3.Tracking Pipeline". A video tutorial for the process is at https://youtu.be/sfZiiN_cCCw
