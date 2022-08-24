@@ -9,7 +9,7 @@ import multiprocessing
 from mouse.utils import dlc_snout_tailbase, deeplabcut_detection_multi_without_refine
 from mouse.utils import check_mrcnn_model_path, tracking_inference_h5, mask_based_detection_h5, ensemble_features_multi_h5
 from mouse.utils import video2frames
-from mouse.utils import mouse_mrcnn_segmentation_h5, background_subtraction_parallel_h5
+from mouse.utils import mouse_mrcnn_segmentation_h5, background_subtraction_parallel_h5, foreground_detection
 import deeplabcut as dlc
 import shutil
 import ntpath
@@ -20,6 +20,8 @@ import streamlit as st
 import deepdish as dd
 import os
 import sys
+import random
+
 
 
 ROOT_DIR = os.path.abspath("./")
@@ -254,13 +256,57 @@ def main():
         image_left_column, image_right_column = st.columns(2) 
         background_filename = file_selector_location(folder_path=args.background, location=image_left_column, title="Select image:", format='jpg')
 
-        click_image = image_right_column.checkbox('Display background')
+        click_image = image_right_column.checkbox('Background substraction settings')
         if click_image:
-            BG = img_as_float(skimage.io.imread(background_filename))
-            if BG.ndim == 2:
-                BG = gray2rgb(BG)
+            # BG = img_as_float(skimage.io.imread(background_filename))
+            # if BG.ndim == 2:
+            #     BG = gray2rgb(BG)
 
-            st.image(BG, caption='Background')
+            # st.image(BG, caption='Background')
+
+            #=========================
+            hybrid_loc1, hybrid_loc2, hybrid_loc3 = st.columns(3)
+
+            #left_column_approach, right_column_approach = st.columns(2)
+            #check = hybrid_loc1.checkbox('Hybrid approach')
+            #check = hybrid_loc1.checkbox('validate')
+            #if check:
+                # Select number of cpus
+            morphology_disk_radius = hybrid_loc1.number_input('Morphology radius', min_value=1, value=10)
+            min_blob = hybrid_loc2.number_input('Min blob', min_value=1, value=1000)
+            cpus = hybrid_loc3.number_input('#CPUs', min_value=1, max_value=multiprocessing.cpu_count(
+            ), value=max(1, int(multiprocessing.cpu_count()/2-2)))
+
+            display_loc1, display_loc2 = st.columns(2)
+            
+            
+        
+            #if display_check:
+                
+            
+            frame_num = 0
+            select_frame = os.path.join(train_frames_dir, str(frame_num)+'.jpg')
+            example = img_as_float(skimage.io.imread(select_frame))
+
+            
+            if example.ndim == 2:
+                example = gray2rgb(example)
+
+
+            display_loc1.image(example, caption='Frame '+str(frame_num))
+
+            mask = foreground_detection(select_frame,background_filename,morphology_disk_radius, min_blob)
+
+            rr, cc = skimage.draw.disk((int(mask.shape[0]/2), int(mask.shape[1]/2)), np.sqrt(min_blob/np.pi))
+            mask[rr, cc, 0:2] = 255
+
+            display_loc2.image(mask, caption='Morphological image')
+
+        else:
+            morphology_disk_radius = 10
+            min_blob = 1000
+
+            #====================
 
 
         # get image for annotation
@@ -270,7 +316,7 @@ def main():
 
         if select_images:
             print('Selecting images for annotation for Mask R-CNN')
-            components = background_subtraction_parallel(train_frames_dir, background_filename, num_processors=2) 
+            components = background_subtraction_parallel(train_frames_dir, background_filename,  min_blob, morphology_disk_radius, num_processors=cpus) 
 
             create_dataset(train_frames_dir,components, num_annotations=num_img)   # increase dataset by increasing num_annotations 
 
@@ -370,8 +416,13 @@ def main():
         track_left_column, track_right_column = st.columns(2)  
         track_video_dir = file_selector_location(folder_path=args.video, location=track_left_column, title="Select video:", format='avi')
 
+
+        # randomly select a frame
+        # track_frames_dir = os.path.join(os.path.splitext(track_video_dir)[0], "images")
+        # frame_num = random.randint(0, len(os.listdir(track_frames_dir))-1)
+        # select_frame = os.path.join(track_frames_dir, str(frame_num)+'.jpg')
+
         # Extracting frames from the video
-        # track_frames_dir = os.path.join(os.path.splitext(track_video_dir)[0], 'images')
 
         click_extract = track_right_column.button('Extract to frames')
         if click_extract:
@@ -407,6 +458,8 @@ def main():
             BG[rr, cc, 0:2] = 1
             right_column_floor.image(BG, caption='Background')
 
+            #-----------------------
+           
        
         # --------------------------------------------------------------------
         mrcnn_loc1, mrcnn_loc2 = st.columns(2)
@@ -432,13 +485,43 @@ def main():
             frames_dir = os.path.join(os.path.splitext(track_video_dir)[0], "images")
 
             # -------------background subtraction-----------------
-            left_column_approach, right_column_approach = st.columns(2)
-            check = left_column_approach.checkbox('Hybrid approach')
+
+            hybrid_loc1, hybrid_loc2, hybrid_loc3, hybrid_loc4 = st.columns(4)
+
+            #left_column_approach, right_column_approach = st.columns(2)
+            check = hybrid_loc1.checkbox('Hybrid approach')
 
             if check:
                 # Select number of cpus
-                cpus = right_column_approach.number_input('#CPUs', min_value=1, max_value=multiprocessing.cpu_count(
+                morphology_disk_radius = hybrid_loc2.number_input('Morphology radius', min_value=1, value=10)
+                min_blob = hybrid_loc3.number_input('Min blob', min_value=1, value=1000)
+                cpus = hybrid_loc4.number_input('#CPUs', min_value=1, max_value=multiprocessing.cpu_count(
                 ), value=max(1, int(multiprocessing.cpu_count()/2-2)))
+
+                display_loc1, display_loc2, display_loc3 = st.columns(3)
+                
+                
+                display_check = display_loc1.checkbox('Validate settings')
+                if display_check:
+                   
+                    track_frames_dir = os.path.join(os.path.splitext(track_video_dir)[0], "images")
+                    frame_num = 0
+                    select_frame = os.path.join(track_frames_dir, str(frame_num)+'.jpg')
+                    example = img_as_float(skimage.io.imread(select_frame))
+
+                    
+                    if example.ndim == 2:
+                        example = gray2rgb(example)
+
+
+                    display_loc2.image(example, caption='Frame '+str(frame_num))
+
+                    mask = foreground_detection(select_frame,background_filename,morphology_disk_radius, min_blob)
+
+                    rr, cc = skimage.draw.disk((int(mask.shape[0]/2), int(mask.shape[1]/2)), np.sqrt(min_blob/np.pi))
+                    mask[rr, cc, 0:2] = 255
+
+                    display_loc3.image(mask, caption='Morphological image')
 
             # ----------select dlc result -----------------------
 
@@ -448,7 +531,7 @@ def main():
 
                 if check:
                     video_dict, components = background_subtraction_parallel_h5(
-                        frames_dir, background_filename, num_processors=cpus)
+                        frames_dir, background_filename, morphology_disk_radius, min_blob, num_processors=cpus)
 
                 else:
                     frames_dir = os.path.join(os.path.splitext(
@@ -619,7 +702,6 @@ def main():
             except:
                 st.write('There is no tracking results for the selected video!')
 
-    #validate2 = st.sidebar.checkbox('Validate keypoints')
     elif tab=="5.Validate Keypoints":
         track_left_column, track_right_column = st.columns(2)  
 
