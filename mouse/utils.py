@@ -107,6 +107,43 @@ def video2frames(video_dir):
             skimage.io.imsave(img_name, image)
     return frames_dir
 
+def foreground_detection(frame_path, background_path, morphology_disk_radius, min_blob):
+
+    im = img_as_float(skimage.io.imread(frame_path))
+    background = img_as_float(skimage.io.imread(background_path))
+
+    if im.ndim == 3:
+        im = rgb2gray(im)
+
+    fg = abs(background - im) > background*0.5
+
+    bw1 = morphology.remove_small_objects(fg, min_blob)
+
+    bw2 = morphology.binary_closing(bw1, morphology.disk(radius=morphology_disk_radius))
+
+    bw3 = bw2
+    label = measure.label(bw3)
+    num_fg = np.max(label)
+
+    masks = np.zeros(
+        [background.shape[0], background.shape[1], 3], dtype=np.uint8)
+
+    if num_fg == 2:
+        bw3_1 = label == 1
+        bw4_1 = morphology.binary_dilation(bw3_1, morphology.disk(radius=max(1, int(morphology_disk_radius/3))))
+
+        bw3_2 = label == 2
+        bw4_2 = morphology.binary_dilation(bw3_2, morphology.disk(radius=max(1, int(morphology_disk_radius/3))))
+
+        masks[:, :, 0] = img_as_ubyte(bw4_1)
+        masks[:, :, 1] = img_as_ubyte(bw4_2)
+
+
+    else:
+        masks[:, :, 0] = img_as_ubyte(bw3)
+
+    return masks
+    
 
 def background_subtraction(frames_dir, background_dir):
     """Generate foregrounds corresponding to frames
@@ -230,6 +267,11 @@ def create_dataset(images_dir, components_info, num_annotations):
         components = components_info
 
     dataset_dir = os.path.join(os.path.dirname(images_dir), 'dataset')
+
+    if os.path.exists(dataset_dir):
+        clean_dir_safe(dataset_dir)
+        os.rmdir(dataset_dir)
+    
     os.mkdir(dataset_dir)
 
     touching = [i for i in range(len(components)) if components[i] == 1]
@@ -1721,7 +1763,7 @@ def ensemble_features_multi_h5(mouse1_md, mouse2_md, mouse1_dlc, mouse2_dlc, com
 
 
 
-def background_subtraction_single(frames_dir, background, threshold, frame_index):
+def background_subtraction_single(frames_dir, background, min_blob, morphology_disk_radius, threshold, frame_index):
     """Generate foregrounds corresponding to frames
     Args:
         frames_dir: path to directory containing frames
@@ -1740,9 +1782,9 @@ def background_subtraction_single(frames_dir, background, threshold, frame_index
         im = rgb2gray(im)
 
     fg = (background - im) > threshold
-    bw1 = morphology.remove_small_objects(fg, 1000)
+    bw1 = morphology.remove_small_objects(fg, min_blob)
 
-    bw2 = morphology.binary_closing(bw1, morphology.disk(radius=10))
+    bw2 = morphology.binary_closing(bw1, morphology.disk(radius=morphology_disk_radius))
 
     bw3 = bw2
     label = measure.label(bw3)
@@ -1753,10 +1795,10 @@ def background_subtraction_single(frames_dir, background, threshold, frame_index
 
     if num_fg == 2:
         bw3_1 = label == 1
-        bw4_1 = morphology.binary_dilation(bw3_1, morphology.disk(radius=3))
+        bw4_1 = morphology.binary_dilation(bw3_1, morphology.disk(radius=max(1, int(morphology_disk_radius/3))))
 
         bw3_2 = label == 2
-        bw4_2 = morphology.binary_dilation(bw3_2, morphology.disk(radius=3))
+        bw4_2 = morphology.binary_dilation(bw3_2, morphology.disk(radius=max(1, int(morphology_disk_radius/3))))
 
         masks[:, :, 0] = img_as_ubyte(bw4_1)
         masks[:, :, 1] = img_as_ubyte(bw4_2)
@@ -1770,7 +1812,7 @@ def background_subtraction_single(frames_dir, background, threshold, frame_index
     return num_fg
 
 
-def background_subtraction_single_h5(frames_dir, background, threshold, frame_index):
+def background_subtraction_single_archived_h5(frames_dir, background, threshold, frame_index):
     """Generate foregrounds corresponding to frames
     Args:
         frames_dir: path to directory containing frames
@@ -1828,10 +1870,71 @@ def background_subtraction_single_h5(frames_dir, background, threshold, frame_in
     
 
     return (frame_index, frame_dict, num_fg)
+
+
+
+def background_subtraction_single_h5(frames_dir, background, threshold,morphology_disk_radius,min_blob, frame_index):
+    """Generate foregrounds corresponding to frames
+    Args:
+        frames_dir: path to directory containing frames
+        fg_dir: path to save foreground
+        background_dir: path to the background image
+        threshold: np.array
+        frame_index: int
+    Returns:
+        (frame_index, frame_dict, num_fg)
+    """
+    frame_dict = {}
+
+    im = img_as_float(skimage.io.imread(
+        os.path.join(frames_dir, str(frame_index) + '.jpg')))
+
+    if im.ndim == 3:
+        im = rgb2gray(im)
+
+    fg = (background - im) > threshold
+    bw1 = morphology.remove_small_objects(fg, min_blob)
+
+    bw2 = morphology.binary_closing(bw1, morphology.disk(radius=morphology_disk_radius))
+
+    bw3 = bw2
+    label = measure.label(bw3)
+    num_fg = np.max(label)
+
+    masks = np.zeros(
+        [background.shape[0], background.shape[1], 3], dtype=np.uint8)
+
+    if num_fg == 2:
+        bw3_1 = label == 1
+        bw4_1 = morphology.binary_dilation(bw3_1, morphology.disk(radius=max(1, int(morphology_disk_radius/3))))
+
+        bw3_2 = label == 2
+        bw4_2 = morphology.binary_dilation(bw3_2, morphology.disk(radius=max(1, int(morphology_disk_radius/3))))
+
+        masks[:, :, 0] = img_as_ubyte(bw4_1)
+        masks[:, :, 1] = img_as_ubyte(bw4_2)
+
+
+        mouse1_boundary = find_contours(img_as_ubyte(bw4_1), 0.5)[0].astype(int)
+        mouse1_temp = mouse1_boundary[:, 0].copy()
+        mouse1_boundary[:, 0] = mouse1_boundary[:,1]
+        mouse1_boundary[:, 1] = mouse1_temp
+
+        mouse2_boundary = find_contours(img_as_ubyte(bw4_2), 0.5)[0].astype(int)
+        mouse2_temp = mouse2_boundary[:, 0].copy()
+        mouse2_boundary[:, 0] = mouse2_boundary[:,1]
+        mouse2_boundary[:, 1] = mouse2_temp
+
+        
+        frame_dict['mouse1'] = mouse1_boundary
+        frame_dict['mouse2'] = mouse2_boundary
+    
+
+    return (frame_index, frame_dict, num_fg)
  
 
 
-def background_subtraction_parallel(frames_dir, background_path, num_processors=None):
+def background_subtraction_parallel(frames_dir, background_path,  min_blob, morphology_disk_radius, num_processors=None):
     """Generate foregrounds corresponding to frames
     Args:
         frames_dir: path to directory containing frames
@@ -1857,13 +1960,13 @@ def background_subtraction_parallel(frames_dir, background_path, num_processors=
 
     p = Pool(processes=num_processors)
     output = p.starmap(background_subtraction_single, [(
-        frames_dir, background, threshold, i) for i in range(0, len(frames_list))])
+        frames_dir, background, min_blob, morphology_disk_radius, threshold, i) for i in range(0, len(frames_list))])
 
 
     return np.array(output)
 
 
-def background_subtraction_parallel_h5(frames_dir, background_path, num_processors=None):
+def background_subtraction_parallel_h5(frames_dir, background_path, morphology_disk_radius=10, min_blob=1000, num_processors=None):
     """Generate foregrounds corresponding to frames
     Args:
         frames_dir: path to directory containing frames
@@ -1885,7 +1988,7 @@ def background_subtraction_parallel_h5(frames_dir, background_path, num_processo
 
     p = Pool(processes=num_processors)
     output = p.starmap(background_subtraction_single_h5, [(
-        frames_dir, background, threshold, i) for i in range(0, len(frames_list))])
+        frames_dir, background, threshold, morphology_disk_radius, min_blob, i) for i in range(0, len(frames_list))])
 
     num_fg_list =np.zeros(len(output))
     for (frame_index, frame_dict, num_fg) in output:
