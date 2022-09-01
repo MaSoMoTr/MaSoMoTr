@@ -602,7 +602,7 @@ def tracking_inference_h5(video_dict, frames_dir, components_info, img_shape=(54
 
             #I[:,:,2] = np.zeros((I.shape[0], I.shape[1]))
             A = A.astype(np.uint8) * 255
-            skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), A)
+            #skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), A)
             #----------------------
 
         else:

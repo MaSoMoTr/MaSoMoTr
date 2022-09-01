@@ -249,7 +249,7 @@ def main():
 
         # Extracting frames from the video
         train_frames_dir = os.path.join(os.path.splitext(train_video_dir)[0], 'images')
-        click_extract = video_column_3.button('STEP 1: extract to frames')
+        click_extract = video_column_3.button('STEP 1: Extract to frames')
         if click_extract:
             video2frames(train_video_dir)
 
@@ -286,7 +286,7 @@ def main():
             rr, cc = skimage.draw.disk((int(mask.shape[0]/2), int(mask.shape[1]/2)), np.sqrt(min_blob/np.pi))
             mask[rr, cc, 0:2] = 255
 
-            display_loc2.image(mask, caption='Morphological image')
+            display_loc2.image(mask, caption='Morphological image (Objects less than yellow min blob are ignored)')
 
         else:
             morphology_disk_radius = 7
@@ -295,10 +295,12 @@ def main():
 
 
         # get image for annotation
-        dataset_column_1, dataset_column_2, dataset_column_3 = st.columns(3)   
-        manual_num = dataset_column_1.number_input('Manual dataset', value=20)
-        automatic_num = dataset_column_2.number_input('Automatic dataset', value=0)
-        select_images = dataset_column_3.button('STEP 2: Generate dataset')
+        dataset_column_1, dataset_column_2 = st.columns(2)   
+        manual_num = dataset_column_1.number_input('Manual dataset (Number of images)', value=20)
+        automatic_num = dataset_column_2.number_input('Automatic dataset (Number of images)', value=0)
+
+        label_column_1, label_column_2, label_column_3 = st.columns(3)
+        select_images = label_column_2.button('STEP 2: Generate dataset')
 
         if select_images:
             print('Selecting images for annotation for Mask R-CNN')
@@ -309,14 +311,15 @@ def main():
         dataset_dir = os.path.join(os.path.dirname(train_frames_dir), 'dataset')
 
         # Label images
-        label_column_1, label_column_2, label_column_3 = st.columns(3)
-        click_annotation = label_column_1.button('STEP 3: Annotate')
-        click_split = label_column_2.button('STEP 4: Split dataset')
+        # label_column_1, label_column_2, label_column_3 = st.columns(3)
+        click_annotation = label_column_3.button('STEP 3: Annotate and Split')
+        split_ratio = label_column_1.number_input('Train size', value=0.8)
+        #click_split = label_column_3.button('STEP 4: Split dataset')
 
         if click_annotation:
             os.system('labelme')
 
-        if click_split:
+        #if click_split:
             split_train_val(dataset_dir, frac_split_train=0.8)
 
         # -----------train the model--------------
@@ -324,7 +327,7 @@ def main():
         init_with  = train_column_1.selectbox('Initial weights?', ('coco', 'imagenet', 'last (most recent trained model)'))
         epochs = train_column_2.number_input('Epochs', value=25)
 
-        click_train = train_column_3.button('STEP 5: Train Mask R-CNN')
+        click_train = train_column_3.button('STEP 4: Train Mask R-CNN')
 
 
         
@@ -499,7 +502,7 @@ def main():
                     rr, cc = skimage.draw.disk((int(mask.shape[0]/2), int(mask.shape[1]/2)), np.sqrt(min_blob/np.pi))
                     mask[rr, cc, 0:2] = 255
 
-                    display_loc3.image(mask, caption='Morphological image')
+                    display_loc3.image(mask, caption='Morphological image (Objects less than yellow min blob are ignored)')
 
             # ----------select dlc result -----------------------
 
