@@ -1,5 +1,5 @@
-# install: conda env create -f conda-environments/markerless-mice-tracking-windowsGPU.yaml
-# update env: conda env update -f conda-environments/markerless-mice-tracking-windowsGPU.yaml
+# install: conda env create -f conda-environments/MaSoMoTr.yaml
+# update env: conda env update -f conda-environments/MaSoMoTr.yaml
 name: MaSoMoTr
 channels:
   - conda-forge
