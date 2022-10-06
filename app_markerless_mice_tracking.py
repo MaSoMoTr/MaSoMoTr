@@ -137,11 +137,11 @@ def dlc_project_selector(location):
 
     list_folders = os.listdir(ROOT_DIR + '\dlc_models')
 
-    #list_file = [ntpath.basename(file) for file in filenames]
+
     selected_folder = location.selectbox(
         'STEP 3: Select DeepLabCut project', list_folders)
 
-    #file_index = list_file.index(selected_filename)
+
     return selected_folder
 
 # -----------------------------------------------------------------------------
@@ -474,7 +474,7 @@ def main():
 
             if check:
                 # Select number of cpus
-                morphology_disk_radius = hybrid_loc2.number_input('Morphology radius', min_value=1, value=10)
+                morphology_disk_radius = hybrid_loc2.number_input('Morphology radius', min_value=1, value=9)
                 min_blob = hybrid_loc3.number_input('Min blob', min_value=1, value=1000)
                 cpus = hybrid_loc4.number_input('#CPUs', min_value=1, max_value=multiprocessing.cpu_count(
                 ), value=max(1, int(multiprocessing.cpu_count()/2-2)))
