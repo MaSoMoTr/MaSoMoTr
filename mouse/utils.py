@@ -600,7 +600,7 @@ def tracking_inference_h5(video_dict, frames_dir, components_info, img_shape=(54
             A[:,:,0] = I[:,:,0]
             A[:,:,1] = I[:,:,1]
 
-            #I[:,:,2] = np.zeros((I.shape[0], I.shape[1]))
+
             A = A.astype(np.uint8) * 255
             #skimage.io.imsave(os.path.join(tracking_dir, str(i) + '.png'), A)
             #----------------------
@@ -1257,7 +1257,7 @@ def mouse_mrcnn_segmentation_h5(video_dict, components_info, frames_dir, backgro
                     frame_dict['mouse1'] =  mouse1_boundary
                     frame_dict['mouse2'] =  mouse2_boundary
 
-            # skimage.io.imsave(os.path.join(output_dir, str(i) + '.png'), masks_rgb)
+            #skimage.io.imsave(os.path.join(output_dir, str(i) + '.png'), masks_rgb)
 
             video_dict[str(i)] = frame_dict            
 

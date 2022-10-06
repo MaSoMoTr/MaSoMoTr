@@ -311,10 +311,10 @@ def main():
         dataset_dir = os.path.join(os.path.dirname(train_frames_dir), 'dataset')
 
         # Label images
-        # label_column_1, label_column_2, label_column_3 = st.columns(3)
+
         click_annotation = label_column_3.button('STEP 3: Annotate and Split')
         split_ratio = label_column_1.number_input('Train size', value=0.8)
-        #click_split = label_column_3.button('STEP 4: Split dataset')
+
 
         if click_annotation:
             os.system('labelme')
@@ -560,10 +560,7 @@ def main():
 
                 df_mouse1_dlc, df_mouse2_dlc = dlc_snout_tailbase(dlc_result)
 
-                #---debug---
 
-                # df_mouse1_dlc.to_csv(os.path.join(os.path.splitext(track_video_dir)[0], 'dlc1.csv'), index=False)
-                # df_mouse2_dlc.to_csv(os.path.join(os.path.splitext(track_video_dir)[0], 'dlc2.csv'), index=False)
 
         # ---------------mask-based detection--------------------------
 
@@ -573,11 +570,7 @@ def main():
                 df_mouse1_md, df_mouse2_md = mask_based_detection_h5(
                     video_tracking_dict, frames_dir, components, floor=floor, image_shape=(BG.shape[0], BG.shape[1]))
 
-                #----debug-------
-                # pd.DataFrame(df_mouse1_md).to_csv(os.path.join(os.path.splitext(track_video_dir)[0], 'md1.csv'), index=False)
-                # pd.DataFrame(df_mouse2_md).to_csv(os.path.join(os.path.splitext(track_video_dir)[0], 'md2.csv'), index=False)
-
-                #----------------
+ 
 
                 # -----------------ensemble--------------------
 
