@@ -35,7 +35,7 @@ import mrcnn.model as modellib
 from mrcnn import visualize
 from mrcnn.model import log
 from imgaug import augmenters as iaa
-from mouse.utils import video2frames, background_subtraction, split_train_val, create_dataset,  background_subtraction_parallel
+from mouse.utils import video2frames, split_train_val, create_dataset,  background_subtraction_parallel
 from mouse.mouse import MouseConfig, MouseDataset
 import multiprocessing
 
@@ -70,7 +70,7 @@ def file_selector_location(folder_path, location, title, format='avi'):
     return filenames[file_index]
 
 # ---------select MaskRCNN model----------------------
-#@st.cache()
+
 def mrcnn_model_selector(folder_path, last_train=None):
     filenames = glob.glob(folder_path+'/*.h5')
 
@@ -137,11 +137,11 @@ def dlc_project_selector(location):
 
     list_folders = os.listdir(ROOT_DIR + '\dlc_models')
 
-    #list_file = [ntpath.basename(file) for file in filenames]
+
     selected_folder = location.selectbox(
         'STEP 3: Select DeepLabCut project', list_folders)
 
-    #file_index = list_file.index(selected_filename)
+
     return selected_folder
 
 # -----------------------------------------------------------------------------
@@ -172,7 +172,7 @@ def draw_points_on_img(img, point_ver, point_hor, color='red', intensity=1, radi
 # ----------------------------------------------------------
 
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
+#@st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def load_tracking_results(path):
     df_mouse1_ensemble = pd.read_csv(path + '/mouse1.csv')
     df_mouse2_ensemble = pd.read_csv(path + '/mouse2.csv')
@@ -243,46 +243,32 @@ def main():
         st.subheader('Train Mask R-CNN Model')
 
         # select video for training
-        video_left_column, video_right_column = st.columns(2)  
-        train_video_dir = file_selector_location(folder_path=args.video_train, location=video_left_column, title="Select video:", format='avi')
+        video_column_1, video_column_2, video_column_3 = st.columns(3)  
+        train_video_dir = file_selector_location(folder_path=args.video_train, location=video_column_1, title="Select video:", format='avi')
+        background_filename = file_selector_location(folder_path=args.background, location=video_column_2, title="Select image:", format='jpg')
 
         # Extracting frames from the video
         train_frames_dir = os.path.join(os.path.splitext(train_video_dir)[0], 'images')
-        click_extract = video_right_column.button('STEP 1: extract to frames')
+        click_extract = video_column_3.button('STEP 1: Extract to frames')
         if click_extract:
             video2frames(train_video_dir)
 
         # Select background image
-        image_left_column, image_right_column = st.columns(2) 
-        background_filename = file_selector_location(folder_path=args.background, location=image_left_column, title="Select image:", format='jpg')
+        BG_column_1, BG_column_2 = st.columns(2) 
+        
 
-        click_image = image_right_column.checkbox('Background substraction settings')
+        click_image = BG_column_1.checkbox('Background substraction settings')
         if click_image:
-            # BG = img_as_float(skimage.io.imread(background_filename))
-            # if BG.ndim == 2:
-            #     BG = gray2rgb(BG)
 
-            # st.image(BG, caption='Background')
-
-            #=========================
             hybrid_loc1, hybrid_loc2, hybrid_loc3 = st.columns(3)
 
-            #left_column_approach, right_column_approach = st.columns(2)
-            #check = hybrid_loc1.checkbox('Hybrid approach')
-            #check = hybrid_loc1.checkbox('validate')
-            #if check:
-                # Select number of cpus
-            morphology_disk_radius = hybrid_loc1.number_input('Morphology radius', min_value=1, value=10)
+            morphology_disk_radius = hybrid_loc1.number_input('Morphology radius', min_value=1, value=7)
             min_blob = hybrid_loc2.number_input('Min blob', min_value=1, value=1000)
             cpus = hybrid_loc3.number_input('#CPUs', min_value=1, max_value=multiprocessing.cpu_count(
             ), value=max(1, int(multiprocessing.cpu_count()/2-2)))
 
             display_loc1, display_loc2 = st.columns(2)
-            
-            
-        
-            #if display_check:
-                
+                         
             
             frame_num = 0
             select_frame = os.path.join(train_frames_dir, str(frame_num)+'.jpg')
@@ -300,43 +286,48 @@ def main():
             rr, cc = skimage.draw.disk((int(mask.shape[0]/2), int(mask.shape[1]/2)), np.sqrt(min_blob/np.pi))
             mask[rr, cc, 0:2] = 255
 
-            display_loc2.image(mask, caption='Morphological image')
+            display_loc2.image(mask, caption='Morphological image (Objects less than yellow min blob are ignored)')
 
         else:
-            morphology_disk_radius = 10
+            morphology_disk_radius = 7
             min_blob = 1000
-
-            #====================
+            cpus=6
 
 
         # get image for annotation
-        left_column, right_column = st.columns(2)   
-        num_img = left_column.number_input('Dataset size', value=20)
-        select_images = right_column.button('STEP 2: select images for annotation')
+        dataset_column_1, dataset_column_2 = st.columns(2)   
+        manual_num = dataset_column_1.number_input('Manual dataset (Number of images)', value=20)
+        automatic_num = dataset_column_2.number_input('Automatic dataset (Number of images)', value=0)
+
+        label_column_1, label_column_2, label_column_3 = st.columns(3)
+        select_images = label_column_2.button('STEP 2: Generate dataset')
 
         if select_images:
             print('Selecting images for annotation for Mask R-CNN')
             components = background_subtraction_parallel(train_frames_dir, background_filename,  min_blob, morphology_disk_radius, num_processors=cpus) 
 
-            create_dataset(train_frames_dir,components, num_annotations=num_img)   # increase dataset by increasing num_annotations 
+            create_dataset(train_frames_dir,background_filename, morphology_disk_radius, min_blob, components, manual_num=manual_num, automatic_num=automatic_num)   # increase dataset by increasing num_annotations 
 
         dataset_dir = os.path.join(os.path.dirname(train_frames_dir), 'dataset')
 
         # Label images
-        label_left_column, label_right_column = st.columns(2)
-        click_annotation = label_left_column.button('STEP 3: annotation')
-        click_split = label_right_column.button('STEP 4: split dataset')
+
+        click_annotation = label_column_3.button('STEP 3: Annotate and Split')
+        split_ratio = label_column_1.number_input('Train size', value=0.8)
+
 
         if click_annotation:
             os.system('labelme')
 
-        if click_split:
+        #if click_split:
             split_train_val(dataset_dir, frac_split_train=0.8)
 
         # -----------train the model--------------
-        train_left_column, train_right_column = st.columns(2) 
-        init_with  = train_left_column.selectbox('Initial weights?', ('coco', 'imagenet', 'last (most recent trained model)'))
-        click_train = train_right_column .button('STEP 5: train Mask R-CNN')
+        train_column_1, train_column_2, train_column_3 = st.columns(3) 
+        init_with  = train_column_1.selectbox('Initial weights?', ('coco', 'imagenet', 'last (most recent trained model)'))
+        epochs = train_column_2.number_input('Epochs', value=25)
+
+        click_train = train_column_3.button('STEP 4: Train Mask R-CNN')
 
 
         
@@ -404,7 +395,7 @@ def main():
             print("Train network heads")
             model.train(dataset_train, dataset_val,
             learning_rate=config.LEARNING_RATE,
-            epochs=10,
+            epochs=epochs,
             augmentation=augmentation,
             layers='heads')
 
@@ -415,14 +406,6 @@ def main():
         # select video for training
         track_left_column, track_right_column = st.columns(2)  
         track_video_dir = file_selector_location(folder_path=args.video, location=track_left_column, title="Select video:", format='avi')
-
-
-        # randomly select a frame
-        # track_frames_dir = os.path.join(os.path.splitext(track_video_dir)[0], "images")
-        # frame_num = random.randint(0, len(os.listdir(track_frames_dir))-1)
-        # select_frame = os.path.join(track_frames_dir, str(frame_num)+'.jpg')
-
-        # Extracting frames from the video
 
         click_extract = track_right_column.button('Extract to frames')
         if click_extract:
@@ -458,8 +441,7 @@ def main():
             BG[rr, cc, 0:2] = 1
             right_column_floor.image(BG, caption='Background')
 
-            #-----------------------
-           
+
        
         # --------------------------------------------------------------------
         mrcnn_loc1, mrcnn_loc2 = st.columns(2)
@@ -488,12 +470,11 @@ def main():
 
             hybrid_loc1, hybrid_loc2, hybrid_loc3, hybrid_loc4 = st.columns(4)
 
-            #left_column_approach, right_column_approach = st.columns(2)
             check = hybrid_loc1.checkbox('Hybrid approach')
 
             if check:
                 # Select number of cpus
-                morphology_disk_radius = hybrid_loc2.number_input('Morphology radius', min_value=1, value=10)
+                morphology_disk_radius = hybrid_loc2.number_input('Morphology radius', min_value=1, value=9)
                 min_blob = hybrid_loc3.number_input('Min blob', min_value=1, value=1000)
                 cpus = hybrid_loc4.number_input('#CPUs', min_value=1, max_value=multiprocessing.cpu_count(
                 ), value=max(1, int(multiprocessing.cpu_count()/2-2)))
@@ -521,7 +502,7 @@ def main():
                     rr, cc = skimage.draw.disk((int(mask.shape[0]/2), int(mask.shape[1]/2)), np.sqrt(min_blob/np.pi))
                     mask[rr, cc, 0:2] = 255
 
-                    display_loc3.image(mask, caption='Morphological image')
+                    display_loc3.image(mask, caption='Morphological image (Objects less than yellow min blob are ignored)')
 
             # ----------select dlc result -----------------------
 
@@ -580,6 +561,7 @@ def main():
                 df_mouse1_dlc, df_mouse2_dlc = dlc_snout_tailbase(dlc_result)
 
 
+
         # ---------------mask-based detection--------------------------
 
                 floor = [[st.session_state.y_offset+1, st.session_state.x_offset+1],
@@ -587,6 +569,8 @@ def main():
 
                 df_mouse1_md, df_mouse2_md = mask_based_detection_h5(
                     video_tracking_dict, frames_dir, components, floor=floor, image_shape=(BG.shape[0], BG.shape[1]))
+
+ 
 
                 # -----------------ensemble--------------------
 
@@ -741,6 +725,11 @@ def main():
                     image, df_mouse2_ensemble.iloc[frame_index2, 3], df_mouse2_ensemble.iloc[frame_index2, 2], color='green', intensity=0.7)
 
                 st.image(image, caption='frame: ' + str(frame_index2))
+
+                st.write(df_mouse1_ensemble.iloc[frame_index2, 1], df_mouse1_ensemble.iloc[frame_index2, 0])
+                st.write(df_mouse1_ensemble.iloc[frame_index2, 3], df_mouse1_ensemble.iloc[frame_index2, 2])
+                st.write(df_mouse2_ensemble.iloc[frame_index2, 1], df_mouse2_ensemble.iloc[frame_index2, 0])
+                st.write(df_mouse2_ensemble.iloc[frame_index2, 3], df_mouse2_ensemble.iloc[frame_index2, 2])
             except:
                 st.write('There is no tracking results for the selected video!')
 
