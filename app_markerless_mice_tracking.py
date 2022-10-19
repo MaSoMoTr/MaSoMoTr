@@ -85,14 +85,22 @@ def mrcnn_model_selector(folder_path, last_train=None):
     file_index = list_model.index(selected_filename)
     return filenames[file_index]
 
-def mrcnn_folder_selector(location):
+def mrcnn_folder_selector(location, parent_folder):
     list_folders = []
-    for it in os.scandir(ROOT_DIR + '\mrcnn_models'):
-        if it.is_dir():
+    if not parent_folder:
+        for it in os.scandir(ROOT_DIR + '\mrcnn_models'):
+            if it.is_dir():
 
-            list_folders.append(it.path)
+                list_folders.append(it.path)
+    else:
+        for it in os.scandir(parent_folder):
+            if it.is_dir():
+
+                list_folders.append(it.path)
+
 
     list_folder_names = [os.path.basename(path) for path in list_folders]
+
 
     selected_folder = location.selectbox(
         'STEP 2: Select Mask R-CNN folder', list_folder_names)
@@ -101,8 +109,12 @@ def mrcnn_folder_selector(location):
     return selected_folder
 
 
+
+
 def mrcnn_h5_selector(mrcnn_folder, location):
     filenames = glob.glob(mrcnn_folder+'\*.h5')
+
+
 
     list_file = [ntpath.basename(file) for file in filenames]
     selected_filename = location.selectbox(
@@ -133,9 +145,12 @@ def dlc_config_selector(dlc_project, location):
     file_index = list_file.index(selected_filename)
     return filenames[file_index]
 
-def dlc_project_selector(location):
-
-    list_folders = os.listdir(ROOT_DIR + '\dlc_models')
+def dlc_project_selector(location, parent_folder):
+    
+    if parent_folder:
+        list_folders = os.listdir(parent_folder)
+    else:
+        list_folders = os.listdir(ROOT_DIR + '\dlc_models')
 
 
     selected_folder = location.selectbox(
@@ -445,16 +460,25 @@ def main():
        
         # --------------------------------------------------------------------
         mrcnn_loc1, mrcnn_loc2 = st.columns(2)
-        mrcnn_folder = mrcnn_folder_selector(mrcnn_loc1)
+        mrcnn_folder = mrcnn_folder_selector(mrcnn_loc1, args.mrcnn_model)
 
-        MRCNN_MODEL_PATH = mrcnn_h5_selector(ROOT_DIR + '\mrcnn_models\\' +mrcnn_folder, mrcnn_loc2)
+
+        if args.mrcnn_model:
+            MRCNN_MODEL_PATH = mrcnn_h5_selector(args.mrcnn_model + '\\' + mrcnn_folder, mrcnn_loc2)
+
+        else:
+            MRCNN_MODEL_PATH = mrcnn_h5_selector(ROOT_DIR + '\mrcnn_models\\' + mrcnn_folder, mrcnn_loc2)
+
 
         # --------------------------------------------------------------------
         dlc_loc1, dlc_loc2 = st.columns(2)
         
-        dlc_project = dlc_project_selector(dlc_loc1)
+        dlc_project = dlc_project_selector(dlc_loc1, args.dlc_project)
 
-        dlc_config = dlc_config_selector(ROOT_DIR + '\dlc_models\\' + dlc_project, dlc_loc2)
+        if args.dlc_project:
+            dlc_config = dlc_config_selector(args.dlc_project + '\\' + dlc_project, dlc_loc2)
+        else:
+            dlc_config = dlc_config_selector(ROOT_DIR + '\dlc_models\\' + dlc_project, dlc_loc2)
 
         loc1, loc2, loc3, loc4 = st.columns(4)
         shuffle = loc1.number_input('Shuffle', value=1)
