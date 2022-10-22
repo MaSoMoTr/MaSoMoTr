@@ -187,7 +187,6 @@ def draw_points_on_img(img, point_ver, point_hor, color='red', intensity=1, radi
 # ----------------------------------------------------------
 
 
-#@st.cache(suppress_st_warning=True, allow_output_mutation=True)
 def load_tracking_results(path):
     df_mouse1_ensemble = pd.read_csv(path + '/mouse1.csv')
     df_mouse2_ensemble = pd.read_csv(path + '/mouse2.csv')
@@ -334,7 +333,7 @@ def main():
         if click_annotation:
             os.system('labelme')
 
-        #if click_split:
+
             split_train_val(dataset_dir, frac_split_train=0.8)
 
         # -----------train the model--------------

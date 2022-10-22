@@ -22,7 +22,13 @@ To run Mask-RCNN and DeepLabCut using GPU, CUDA and cuDNN  must be installed acc
 To apply the algorithm to new videos which have significantly different settings compared with our settings described in the paper, we recommend you to
 retrain Mask RCNN and Deeplabcut models on your own data.
 
-Run the command line below to launch Streamlit-based UI 
+There are two ways to launch Streamlit-based GUI:
+
+Run the bat file "LaunchGUI.bat" and browse the paths for models, videos and background image.
+
+OR
+
+Run the command line below 
    ```bash
    streamlit run app_markerless_mice_tracking.py -- --video=path_to_video_dir/  --background=path_to_background_image_dir/ --mrcnn_model=path_to_mrcnn_model_dir/ --dlc_project=path_to_dlc_project_dir/
    ```
