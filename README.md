@@ -20,7 +20,7 @@ To run Mask-RCNN and DeepLabCut using GPU, CUDA and cuDNN  must be installed acc
 
 ## Applying the algorithm on your own data
 To apply the algorithm to new videos which have significantly different settings compared with our settings described in the paper, we recommend you to
-retrain Mask RCNN and Deeplabcut models on your own data.
+retrain Mask RCNN and Deeplabcut models on your own data. A video tutorial for both training the Mask RCNN as well as using trained DLC and Mask RCNN models to track mice is available [here](http://people.ucalgary.ca/~kmurari).
 
 There are two ways to launch Streamlit-based GUI:
 
@@ -34,10 +34,10 @@ Run the command line below
    ```
 If paths are not specified in the above command, streamlit will use default paths located in the project directory for loading videos and saving models. 
 - Select the tab "1.Train maDeepLabCut" and follow the instructions for training a DLC model which can be found in [DeepLabCut repository](https://github.com/DeepLabCut/DeepLabCut)
-- Select the tab "2.Train Mask R-CNN" and follow the workflow to train Mask-RCNN. A tutorial video for training the Mask R-CNN (assuming the installation steps above have been completed) is at https://youtu.be/slhlq_QKNO8
+- Select the tab "2.Train Mask R-CNN" and follow the workflow to train Mask-RCNN.
 
 
-To track mice in new videos, select the tab "3.Tracking Pipeline". A video tutorial for the process is at https://youtu.be/sfZiiN_cCCw
+To track mice in new videos, select the tab "3.Tracking Pipeline". 
 Follow the GUI to specify the inputs for the pipeline including video .avi, background .jpg, Mask-RCNN model .h5, config.yaml of DeepLabCut project.
 * Output of the workflow are two CSV files storing coordinates of snout and tailbase corresponding to two mice: *mouse1.csv* and *mouse2.csv*, and a file *masks.h5* containing masks of the two mice. 
 
