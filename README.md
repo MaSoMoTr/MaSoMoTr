@@ -20,7 +20,7 @@ To run Mask-RCNN and DeepLabCut using GPU, CUDA and cuDNN  must be installed acc
 
 ## Applying the algorithm on your own data
 To apply the algorithm to new videos which have significantly different settings compared with our settings described in the paper, we recommend you to
-retrain Mask RCNN and Deeplabcut models on your own data. A video tutorial for both training the Mask RCNN as well as using trained DLC and Mask RCNN models to track mice is available [here](http://people.ucalgary.ca/~kmurari).
+retrain Mask RCNN and Deeplabcut models on your own data. A video tutorial for both training the Mask RCNN as well as using trained DLC and Mask RCNN models to track mice is available [here](https://youtu.be/cfDd8oyILiY).
 
 There are two ways to launch Streamlit-based GUI:
 
