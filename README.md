@@ -43,13 +43,13 @@ Follow the GUI to specify the inputs for the pipeline including video .avi, back
 
 
 ## Pretrained models and video samples
-Please visit [this link](https://uofc-my.sharepoint.com/:f:/g/personal/kmurari_ucalgary_ca/EjqrWeirbeRKsp5mJgH_on4BuBQ0ooMnpUPXdpU62ACwFg?e=0BI2BH)
+Please visit [this link](https://uofc-my.sharepoint.com/:f:/g/personal/kmurari_ucalgary_ca/EjqrWeirbeRKsp5mJgH_on4BuBQ0ooMnpUPXdpU62ACwFg?e=0BI2BH) to download the files as detailed below:
 1. Mask-RCNN model mask_rcnn_mouse_0025.h5
 The model should be saved in the path:  *mrcnn_models/mask_rcnn_mouse_0025.h5*
 2. Deeplabcut model dlc_mice_model.zip
 The zip file must be extracted and saved in the path:  *dlc_models/dlc_mice_tracking*
-3. Mouse Tracking dataset /MTdataset/
-4. Sample training and validation data used in the tutorials above /tutorialData/
+3. Mouse Tracking dataset: directory MTdataset/ has the 12 videos used in the paper
+4. Sample training and validation data used in the tutorials above is in the directory /tutorialData/
 
 The current configuration allows you to track 2 mice in the videos, but you can expand to track more mice with proper configuration.
 
