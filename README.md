@@ -48,8 +48,8 @@ Please visit [this link](https://uofc-my.sharepoint.com/:f:/g/personal/kmurari_u
 The model should be saved in the path:  *mrcnn_models/mask_rcnn_mouse_0025.h5*
 2. Deeplabcut model dlc_mice_model.zip
 The zip file must be extracted and saved in the path:  *dlc_models/dlc_mice_tracking*
-3. Mouse Tracking dataset: directory MTdataset/ has the 12 videos used in the paper
-4. Sample training and validation data used in the tutorials above is in the directory /tutorialData/
+3. Sample training and validation data used in the tutorials above is in the directory /tutorialData/
+4. Mouse Tracking dataset: directory MTdataset/ has the 12 videos used in the paper
 
 The current configuration allows you to track 2 mice in the videos, but you can expand to track more mice with proper configuration.
 
