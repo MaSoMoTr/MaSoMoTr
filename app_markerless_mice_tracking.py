@@ -231,7 +231,7 @@ def main():
 
     parser.add_argument('--dlc_project', required=False,
                         metavar="/path/to/dlc_project_dir/",
-                        default='dlc_models/dlc_mice_model',
+                        default='dlc_models',
                         help='Path to deeplabcut project containing config.yaml')
 
  
