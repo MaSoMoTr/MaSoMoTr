@@ -4,7 +4,7 @@ This is an implementation of the pipeline to track unmarked mice of similar appe
 
 ## Installation
 The code has been run successfully on Windows 7 and 10 with NVIDIA GPUs (Titan XP and RTX2070)
-1. Clone this repository
+1. Clone this repository using the [Git tool](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository). Alternatively you may simply download the repository as a [zip archive](https://github.com/MaSoMoTr/MaSoMoTr/archive/refs/heads/master.zip) and extract it.
 2. [Anaconda](https://www.anaconda.com/distribution/) is highly recommended to install Python 3
 3. Install dependencies with our provided Anaconda environments
    ```bash
