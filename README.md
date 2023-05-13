@@ -6,7 +6,7 @@ This is an implementation of the pipeline to track unmarked mice of similar appe
 The code has been run successfully on Windows 7 and 10 with NVIDIA GPUs (Titan XP and RTX2070)
 1. Clone this repository using the [Git tool](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository). Alternatively you may simply download the repository as a [zip archive](https://github.com/MaSoMoTr/MaSoMoTr/archive/refs/heads/master.zip) and extract it.
 2. [Anaconda](https://www.anaconda.com/distribution/) is highly recommended to install Python 3. Once Anaconda is installed, [open an Anaconda prompt](https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html#starting-conda) and navigate to the MaSoMoTr-master folder created in step 1.
-3. Install DLC and dependencies needed by our lgorithm using the provided Anaconda environment.
+3. Use the Anaconda environment configuration file provided in this repository to install DLC and dependencies needed by our algorithm.
    ```bash
    conda env create -f conda-environments/MaSoMoTr.yaml
    ```
