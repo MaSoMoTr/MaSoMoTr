@@ -51,5 +51,7 @@ The zip file must be extracted and saved in the path:  *dlc_models/dlc_mice_trac
 3. Sample training and validation data used in the video tutorial above is in the directory **/tutorialData/**
 4. Mouse Tracking dataset: directory **MTdataset/** has the 12 videos used in the paper
 
+Please email kmurari@ucalgary.ca in case the link above does not work.
+
 The current configuration allows you to track 2 mice in the videos, but you can expand to track more mice with proper configuration.
 
