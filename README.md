@@ -1,6 +1,6 @@
 # Markerless Mice Tracking for Social Experiments
 
-This is an implementation of the pipeline to track unmarked mice of similar appearance. The technique and characterization are described in the paper https://biorxiv.org/cgi/content/short/2021.10.20.464614v1
+This is an implementation of the pipeline to track unmarked mice of similar appearance. The technique and characterization are described in the paper https://www.eneuro.org/content/11/2/ENEURO.0154-22.2023.abstract
 
 ## Installation
 The code has been run successfully on Windows 7 and 10 with NVIDIA GPUs (Titan XP and RTX2070)
