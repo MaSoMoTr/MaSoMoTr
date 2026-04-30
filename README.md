@@ -43,7 +43,7 @@ Follow the GUI to specify the inputs for the pipeline including video .avi, back
 
 
 ## Pretrained models and video samples
-Please visit [this link](https://uofc-my.sharepoint.com/:f:/g/personal/kmurari_ucalgary_ca/IgA6q1noq23kSrKeZiYB_6J-AUzkdKePv5kFG1G2Rd__9YA?e=5mVPIi) to download the files as detailed below:
+Please visit [this link](https://uofc-my.sharepoint.com/:f:/g/personal/kmurari_ucalgary_ca/IgA6q1noq23kSrKeZiYB_6J-AROM53Jx93vtS1cwX1Nmn8c?e=4smUPA) to download the files as detailed below:
 1. Mask-RCNN model **mask_rcnn_mouse_0025.h5**
 The model should be saved in the path:  *mrcnn_models/mask_rcnn_mouse_0025.h5*
 2. Deeplabcut model **dlc_mice_model.zip**
